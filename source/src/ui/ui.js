@@ -35,67 +35,96 @@ export function createUI(rootEl) {
   rootEl.append(root);
 
   // ---------- HUD ----------
-  const hpFill = h("i"), hpText = h("b"), shFill = h("i"), shText = h("b");
-  const hpBar = h("div", { class: "bar hp", role: "meter", "aria-label": "Health", "aria-valuemin": 0 }, hpFill, hpText);
-  const shBar = h("div", { class: "bar shield", role: "meter", "aria-label": "Shield", "aria-valuemin": 0 }, shFill);
-  const mkCd = (label) => { const f = h("i"), t = h("span", { text: label }); return { el: h("div", { class: "cd", "aria-label": label }, f, t), f, t, label }; };
-  const skillCd = mkCd("Skill"), dodgeCd = mkCd("Dodge");
-  const hudTL = h("div", { class: "hud-tl plate" }, hpBar, shBar, h("div", { class: "cds" }, dodgeCd.el, skillCd.el));
-  const curText = h("span", { class: "coin", "aria-label": "Currency" });
-  const floorText = h("span", { class: "muted" });
-  const savedChip = h("span", { class: "chip", text: "Saved", hidden: true });
+  // Top-left: health (+shield) and ability slots. Top-right: floor progress, foes left, embers, pause.
+  // Bottom-left: build tags with 2/3 bonus pips. Top-centre: boss bar with phase ticks. Full-screen hurt vignette.
+  const hpFill = h("i"), shFill = h("i", { class: "sh" }), hpText = h("b");
+  const hpBar = h("div", { class: "bar hp", role: "meter", "aria-label": "Health", "aria-valuemin": 0 }, hpFill, shFill, hpText);
+  const mkSlot = (label, key) => {
+    const f = h("i"), t = h("span", { class: "lbl", text: label }), k = h("kbd", { text: key });
+    return { el: h("div", { class: "slot", "aria-label": label + " (" + key + ")" }, f, k, t), f, t, label };
+  };
+  const dodgeSlot = mkSlot("Dodge", "Space"), skillSlot = mkSlot("Bash", "L");
+  const hudTL = h("div", { class: "hud-tl plate" }, hpBar, h("div", { class: "slots" }, dodgeSlot.el, skillSlot.el));
+  const floorText = h("span", { class: "fl" });
+  const pips = h("span", { class: "pips", "aria-hidden": "true" });
+  const foesText = h("span", { class: "foes" });
+  const curText = h("span", { class: "coin", "aria-label": "Embers" });
+  const savedChip = h("span", { class: "saved", text: "Saved" });
   const pauseBtn = h("button", { type: "button", class: "pausebtn", "aria-label": "Pause", text: "II" });
   let pauseHandler = null;
   pauseBtn.addEventListener("click", () => {
     if (pauseHandler) pauseHandler();
     else root.dispatchEvent(new CustomEvent("dusk:pause", { bubbles: true }));
   });
-  const hudTR = h("div", { class: "hud-tr" }, h("div", { class: "plate" }, floorText, curText, savedChip), pauseBtn);
+  const hudTR = h("div", { class: "hud-tr" },
+    h("div", { class: "plate prog" }, h("div", { class: "row1" }, floorText, pips), h("div", { class: "row2" }, foesText, curText, savedChip)), pauseBtn);
   const hudBL = h("div", { class: "hud-bl", "aria-label": "Build" });
   const bossName = h("div", { class: "nm" }), bossFill = h("i");
-  const bossBar = h("div", { class: "bar", role: "meter", "aria-label": "Boss health" }, bossFill);
+  const bossBar = h("div", { class: "bar boss", role: "meter", "aria-label": "Boss health" }, bossFill, h("u", { style: "left:33.3%" }), h("u", { style: "left:66.6%" }));
   const hudTop = h("div", { class: "hud-top plate", hidden: true }, bossName, bossBar);
-  const hud = h("div", { class: "hud", hidden: true }, hudTL, hudTR, hudBL, hudTop);
+  const hurt = h("div", { class: "hurt", "aria-hidden": "true" });
+  const hud = h("div", { class: "hud", hidden: true }, hurt, hudTL, hudTR, hudBL, hudTop);
   root.append(hud);
 
   const last = {};
   const setTxt = (el, key, v) => { if (last[key] !== v) { last[key] = v; el.textContent = v; } };
-  function setCd(c, key, cd, max) {
+  const touchBtn = {};
+  function setCd(slot, key, cd, max, touchSel) {
     const ready = !(cd > 0.05);
-    const k = ready ? "r" : Math.round(cd * 10) + "/" + max;
+    const frac = ready ? 1 : Math.max(0, Math.min(1, (max - cd) / max));
+    const k = ready ? "r" : Math.round(cd * 10);
     if (last[key] === k) return;
     last[key] = k;
-    c.el.classList.toggle("ready", ready);
-    c.f.style.width = (ready ? 100 : pct(max - cd, max)) + "%";
-    c.t.textContent = ready ? c.label : c.label + " " + cd.toFixed(1);
+    slot.el.classList.toggle("ready", ready);
+    slot.f.style.width = Math.round(frac * 100) + "%";
+    slot.t.textContent = ready ? slot.label : cd.toFixed(1) + "s";
+    // touch buttons carry their own cooldown ring
+    const tb = touchBtn[touchSel] || (touchBtn[touchSel] = document.querySelector(".dusk-tbtn." + touchSel));
+    if (tb) { tb.style.setProperty("--p", frac.toFixed(3)); tb.classList.toggle("cooling", !ready); }
   }
 
   const hudApi = {
     show(v) { hud.hidden = !v; },
     onPause(fn) { pauseHandler = fn; },
+    hurt(strength = 1) {
+      hurt.style.setProperty("--a", String(Math.min(1, 0.35 + 0.65 * strength)));
+      hurt.classList.remove("on"); void hurt.offsetWidth; hurt.classList.add("on");
+    },
     update(s = {}) {
-      const maxHp = s.maxHp || 1, hp = Math.max(0, s.hp || 0);
+      hud.classList.toggle("touch", !!s.touch);
+      const maxHp = s.maxHp || 1, hp = Math.max(0, s.hp || 0), sh = s.shield || 0;
       hpFill.style.width = pct(hp, maxHp) + "%";
+      shFill.style.width = pct(Math.min(sh, maxHp), maxHp) + "%";
+      shFill.style.display = sh > 0 ? "" : "none";
       hpBar.classList.toggle("low", hp / maxHp < 0.3);
-      setTxt(hpText, "hp", Math.ceil(hp) + " / " + Math.ceil(maxHp));
+      setTxt(hpText, "hp", Math.ceil(hp) + " / " + Math.ceil(maxHp) + (sh > 0 ? "  +" + Math.ceil(sh) : ""));
       hpBar.setAttribute("aria-valuemax", Math.ceil(maxHp));
       hpBar.setAttribute("aria-valuenow", Math.ceil(hp));
-      const sh = s.shield || 0;
-      shBar.style.display = sh > 0 ? "" : "none";
-      shFill.style.width = pct(sh, maxHp) + "%";
-      shBar.setAttribute("aria-valuenow", Math.ceil(sh));
-      shBar.setAttribute("aria-valuemax", Math.ceil(maxHp));
-      setTxt(curText, "cur", String((s.currency | 0)) + " embers");
-      setTxt(floorText, "fl", s.floor != null ? "Floor " + s.floor + (s.rooms ? " - Room " + (s.room + 1) + "/" + s.rooms : "") : "");
-      savedChip.hidden = !s.saved;
-      setCd(skillCd, "skill", s.skillCd || 0, s.skillMax || 1);
-      setCd(dodgeCd, "dodge", s.dodgeCd || 0, s.dodgeMax || 1);
+      setTxt(curText, "cur", String(s.currency | 0));
+      // floor progress: one pip per room, boss last
+      const rooms = s.rooms || 0, room = s.room || 0, isBoss = rooms && room >= rooms - 1;
+      setTxt(floorText, "fl", s.floor != null ? "Floor " + s.floor + (isBoss ? " · Boss" : rooms ? " · Room " + (room + 1) + " of " + (rooms - 1) : "") : "");
+      const pk = rooms + ":" + room;
+      if (last.pips !== pk) {
+        last.pips = pk;
+        const out = [];
+        for (let i = 0; i < rooms; i++) out.push(h("i", { class: (i === rooms - 1 ? "boss " : "") + (i < room ? "done" : i === room ? "now" : "") }));
+        pips.replaceChildren(...out);
+      }
+      setTxt(foesText, "foes", s.foes == null ? "" : s.foes > 0 ? s.foes + (s.foes === 1 ? " foe left" : " foes left") : "Portal open");
+      foesText.classList.toggle("clear", s.foes === 0);
+      savedChip.classList.toggle("show", !!s.saved);
+      setCd(dodgeSlot, "dodge", s.dodgeCd || 0, s.dodgeMax || 1, "dodge");
+      setCd(skillSlot, "skill", s.skillCd || 0, s.skillMax || 1, "skill");
       const tags = s.tags || {};
       const tk = Object.keys(tags).filter((k) => tags[k] > 0).map((k) => k + tags[k]).join(",");
       if (last.tags !== tk) {
         last.tags = tk;
-        hudBL.replaceChildren(...Object.keys(tags).filter((k) => tags[k] > 0).map((k) =>
-          h("span", { class: "tagchip" + (tags[k] >= 2 ? " on" : ""), title: tagName(k) + " x" + tags[k] }, tagName(k) + " x" + tags[k])));
+        hudBL.replaceChildren(...Object.keys(tags).filter((k) => tags[k] > 0).sort((x, y) => tags[y] - tags[x]).map((k) => {
+          const n = tags[k], dots = [1, 2, 3].map((i) => h("i", { class: i <= n ? "f" : "" }));
+          return h("span", { class: "tagchip" + (n >= 3 ? " max" : n >= 2 ? " on" : ""), "aria-label": tagName(k) + " " + n + " of 3" + (n >= 2 ? ", bonus active" : "") },
+            h("span", { text: tagName(k) }), h("span", { class: "dots" }, ...dots));
+        }));
       }
       const b = s.boss;
       hudTop.hidden = !b;

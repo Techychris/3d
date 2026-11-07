@@ -47,7 +47,7 @@ export function createInput(rootEl) {
   const knobEl = doc.createElement("div"); knobEl.className = "dusk-knob";
   layer.append(stickEl, knobEl);
   const btnEls = {};
-  for (const [name, label] of [["attack", "Attack"], ["dodge", "Dodge"], ["skill", "Skill"]]) {
+  for (const [name, label] of [["attack", "Attack"], ["dodge", "Dodge"], ["skill", "Bash"]]) {
     const b = doc.createElement("div");
     b.className = "dusk-tbtn " + name;
     b.textContent = label;

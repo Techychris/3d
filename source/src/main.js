@@ -62,7 +62,8 @@ function hudUpdate() {
     tags: tagCounts(run ? run.items : []), currency: meta.currency, floor: run ? run.floor : 0,
     room: run ? Math.min(run.room, ROOMS_PER_FLOOR) : 0, rooms: ROOMS_PER_FLOOR + 1,
     saved: savedFlash > 0, boss: boss ? { name: boss.name, hp: Math.max(0, boss.hp), maxHp: boss.maxHp } : null,
-    skillCd: p.skillCd || 0, skillMax: 7, dodgeCd: p.dodgeCd || 0, dodgeMax: world.stats.dodgeCooldown,
+    skillCd: p.skillCd || 0, skillMax: p.skillMax || 7, dodgeCd: p.dodgeCd || 0, dodgeMax: p.dodgeMax || world.stats.dodgeCooldown,
+    foes: state === "run" || state === "dying" ? world.enemies.filter(e => !e.dead).length : null, touch: input.isTouchVisible ? input.isTouchVisible() : false,
   });
 }
 let savedFlash = 0;
@@ -240,7 +241,7 @@ function endRun(won) {
 }
 
 // ---------------- events ----------------
-world.events.on("player:hit", ({ amount }) => { if (run && amount > 0) run.hitsTaken = (run.hitsTaken || 0) + 1; });
+world.events.on("player:hit", ({ amount }) => { if (run && amount > 0) { run.hitsTaken = (run.hitsTaken || 0) + 1; ui.hud.hurt(Math.min(1, amount / 20)); } });
 world.events.on("currency", ({ amount }) => { meta.currency += amount; runEmbers += amount; audio.play("coin"); });
 world.events.on("player:death", ({ killer }) => { killerName = killer; if (state !== "run") return; state = "dying"; setTimeout(() => { if (state === "dying") endRun(false); }, 900); });
 
