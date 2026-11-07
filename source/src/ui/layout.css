@@ -1,0 +1,55 @@
+/* Game layout: where the shared components sit over the canvas, and their runtime states.
+   Looks come from design-system/tokens.css + components.css (shared with the design system). */
+.dusk-ui{position:absolute;inset:0;pointer-events:none;z-index:10;overflow:hidden}
+.dusk-ui button{pointer-events:auto}
+
+/* overlay screens */
+.dusk-ui .screen{position:absolute;inset:0;align-items:safe center;pointer-events:auto;overflow:auto}
+.dusk-ui .screen[hidden]{display:none}
+.dusk-ui .panel{max-height:100%;overflow:auto}
+.dusk-ui .hub{width:min(600px,100%)}
+.dusk-ui .shrine{width:min(1040px,100%);display:flex;flex-direction:column;gap:var(--space-16);align-items:center}
+.dusk-ui .card{min-height:248px;pointer-events:auto}
+.dusk-ui .cards{width:100%}
+.dusk-ui .recap{width:min(560px,100%)}
+.dusk-ui .recap ul{margin:0;padding-left:var(--space-20)}
+.dusk-ui .settings{width:min(520px,100%)}
+.dusk-ui .settings input[type=text],.dusk-ui .settings textarea{min-height:var(--touch-min);background:var(--field);color:var(--text);border:2px solid var(--line);border-radius:var(--radius-md);padding:var(--space-8) var(--space-12);font:inherit}
+.dusk-ui .settings textarea{width:100%;min-height:64px;pointer-events:auto;-webkit-user-select:text;user-select:text}
+.dusk-ui .msg{min-height:1.4em;font-size:.875rem}
+.dusk-ui .codex{width:min(820px,100%)}
+.dusk-ui .codex-grid{overflow:auto}
+.dusk-ui .rotate{z-index:5}
+.dusk-ui .screen.rotate{align-items:center;justify-content:center}
+.dusk-ui .loading{z-index:6}
+
+/* HUD: corners inside the safe areas */
+.dusk-ui .hud{position:absolute;inset:0;pointer-events:none;padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
+.dusk-ui .hud[hidden]{display:none}
+.dusk-ui .hud-tl{position:absolute;top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));width:min(260px,44vw)}
+.dusk-ui .hud-tl .slots{margin-top:var(--space-8)}
+.dusk-ui .hud.touch .slots{display:none}
+.dusk-ui .hud-tr{position:absolute;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));display:flex;gap:var(--space-8);align-items:center}
+.dusk-ui .hud-tr .plate{color:var(--text);min-height:44px}
+.dusk-ui .hud-bl{position:absolute;bottom:max(12px,env(safe-area-inset-bottom));left:max(12px,env(safe-area-inset-left));max-width:46vw}
+.dusk-ui .hud-top{position:absolute;top:max(12px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);width:min(420px,calc(100vw - 640px));min-width:200px}
+@media (max-width:1000px){.dusk-ui .hud-top{top:calc(max(12px,env(safe-area-inset-top)) + 64px);width:min(360px,56vw)}}
+.dusk-ui .saved{opacity:0;transition:opacity .3s var(--ease-out)}
+.dusk-ui .saved.show{opacity:1}
+.dusk-ui .hurt{opacity:0}
+.dusk-ui .hurt.on{animation:dusk-hurt .45s var(--ease-out)}
+@keyframes dusk-hurt{0%{opacity:var(--a,.6)}100%{opacity:0}}
+.dusk-ui .toast{position:absolute;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);opacity:0;transition:opacity .2s var(--ease-out);pointer-events:none;z-index:20}
+.dusk-ui .toast.show{opacity:1}
+
+@media (max-width:760px){.dusk-ui .card{min-height:0}.dusk-ui .screen{align-items:flex-start}}
+@media (max-height:480px){
+ .dusk-ui .screen{padding:var(--space-8)}
+ .dusk-ui .hud-tl{width:200px}
+ .dusk-ui .hub .sub,.dusk-ui .shrine .sub{display:none}
+ .dusk-ui .shrine{gap:var(--space-8)}
+ .dusk-ui .card .take{min-height:44px}
+ .dusk-ui .hub{width:min(640px,100%)}
+ .dusk-ui .shrine .head{padding:var(--space-8) var(--space-20)!important}
+ .dusk-ui .card{min-height:0}
+}

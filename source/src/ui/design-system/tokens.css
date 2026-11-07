@@ -1,0 +1,90 @@
+/* Dusk Isles UI — generated from tokens.json */
+:root, [data-theme="dusk"] {
+  --ground: #2a2140;
+  --scrim: rgba(14,8,28,.55);
+  --scrim-solid: rgba(14,8,28,.94);
+  --panel: rgba(42,33,64,.88);
+  --panel-2: rgba(58,46,88,.9);
+  --plate: rgba(20,12,38,.78);
+  --well: rgba(0,0,0,.25);
+  --track: rgba(0,0,0,.55);
+  --field: #1b1230;
+  --control: rgba(70,56,104,.9);
+  --control-hover: rgba(92,74,132,.95);
+  --line: rgba(190,170,240,.35);
+  --text: #e6dcff;
+  --muted: #b7a9d9;
+  --title: #ffe6b0;
+  --amber: #f0b860;
+  --amber-hover: #ffc874;
+  --amber-edge: #ffd994;
+  --on-amber: #2a1a05;
+  --ember: #ffb060;
+  --danger: #ff3d5a;
+  --danger-soft: #ff8da0;
+  --hp-top: #ff5d75;
+  --hp-bottom: #e02a48;
+  --boss-bottom: #c02040;
+  --heal: #6fe0c0;
+  --on-heal: #06261d;
+  --magic: #a070ff;
+  --gold: #f0b860;
+  --focus-ring: #ffffff;
+  --focus-halo: #7a5cd0;
+  --touch-fill: rgba(92,58,160,.42);
+  --touch-fill-down: rgba(160,112,255,.65);
+  --touch-edge: #c8b6ff;
+  --meter-text: #ffffff;
+  --meter-edge: rgba(255,255,255,.25);
+  --cooling: rgba(240,184,96,.28);
+  --ready-wash: rgba(111,224,192,.22);
+  --key-fill: #2b2338;
+  --key-edge: #6a5f80;
+  --ring-track: rgba(255,255,255,.12);
+  --touch-fill-soft: rgba(92,58,160,.25);
+  --touch-knob: rgba(160,112,255,.5);
+  --shadow-panel: 0 8px 28px rgba(0,0,0,.4);
+  --shadow-card-selected: 0 0 0 3px rgba(240,184,96,.35), 0 8px 24px rgba(0,0,0,.4);
+  --shadow-focus: 0 0 0 5px #7a5cd0;
+  --shadow-hurt: inset 0 0 90px 10px #ff3d5a;
+}
+:root {
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-pill: 999px;
+  --touch-min: 44px;
+  --button-lg-height: 56px;
+  --touch-attack: 76px;
+  --touch-small: 56px;
+  --meter-hp: 24px;
+  --meter-boss: 16px;
+  --slot-height: 28px;
+  --pip: 9px;
+  --icon: 1em;
+  --icon-touch: 24px;
+  --disabled: 0.55;
+  --font-display: Georgia, "Palatino Linotype", Palatino, serif;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.title-xl { font-family: var(--font-display); font-size: 2.4rem; line-height: 1.15; font-weight: 700; letter-spacing: 0.01em; }
+.title-lg { font-family: var(--font-display); font-size: 1.6rem; line-height: 1.2; font-weight: 700; letter-spacing: 0.01em; }
+.title-md { font-family: var(--font-display); font-size: 1.2rem; line-height: 1.25; font-weight: 700; }
+.boss-name { font-family: var(--font-display); font-size: 0.875rem; line-height: 1.3; font-weight: 400; letter-spacing: 0.04em; }
+.body { font-family: var(--font-ui); font-size: 16px; line-height: 1.4; font-weight: 400; }
+.button-lg { font-family: var(--font-ui); font-size: 1.3rem; line-height: 1.2; font-weight: 600; }
+.label-strong { font-family: var(--font-ui); font-size: 0.875rem; line-height: 1.3; font-weight: 600; }
+.small { font-family: var(--font-ui); font-size: 0.875rem; line-height: 1.35; font-weight: 400; }
+.chip { font-family: var(--font-ui); font-size: 0.875rem; line-height: 1.2; font-weight: 600; }
+.tag { font-family: var(--font-ui); font-size: 0.8125rem; line-height: 1.2; font-weight: 400; }
+.caption { font-family: var(--font-ui); font-size: 0.75rem; line-height: 1.2; font-weight: 600; letter-spacing: 0; }
+.micro { font-family: var(--font-ui); font-size: 0.75rem; line-height: 1.2; font-weight: 400; }

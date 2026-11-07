@@ -1,3 +1,4 @@
+import { iconEl } from "../ui/icons.js";
 // Module F: input. Keyboard, mouse and multi-touch (pointer events).
 const STICK_R = 60;
 const DEADZONE = 0.15;
@@ -7,14 +8,11 @@ const STYLE = `
 .dusk-input-root,.dusk-input-root canvas{touch-action:none;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
 .dusk-touch{position:absolute;inset:0;pointer-events:none;z-index:5;display:none;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 .dusk-touch.on{display:block}
-.dusk-tbtn{position:absolute;pointer-events:auto;touch-action:none;border-radius:50%;box-sizing:border-box;border:2px solid #c8b6ff;background:rgba(92,58,160,.42);color:#f2ecff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;letter-spacing:.02em;text-shadow:0 1px 2px #120a24,0 0 4px #120a24;padding:0;margin:0;outline:none;user-select:none;-webkit-user-select:none}
-.dusk-tbtn.down{background:rgba(160,112,255,.65);transform:scale(.94)}
-.dusk-tbtn.attack{width:76px;height:76px;font-size:15px;right:calc(env(safe-area-inset-right,0px) + 22px);bottom:calc(env(safe-area-inset-bottom,0px) + 22px)}
-.dusk-tbtn.dodge{width:56px;height:56px;right:calc(env(safe-area-inset-right,0px) + 110px);bottom:calc(env(safe-area-inset-bottom,0px) + 18px)}
-.dusk-tbtn.skill{width:56px;height:56px;right:calc(env(safe-area-inset-right,0px) + 66px);bottom:calc(env(safe-area-inset-bottom,0px) + 106px)}
+.dusk-tbtn{position:absolute;pointer-events:auto;touch-action:none;display:flex;padding:0;margin:0;outline:none;user-select:none;-webkit-user-select:none}
+.dusk-tbtn.attack{right:calc(env(safe-area-inset-right,0px) + 22px);bottom:calc(env(safe-area-inset-bottom,0px) + 22px)}
+.dusk-tbtn.dodge{right:calc(env(safe-area-inset-right,0px) + 110px);bottom:calc(env(safe-area-inset-bottom,0px) + 18px)}
+.dusk-tbtn.skill{right:calc(env(safe-area-inset-right,0px) + 66px);bottom:calc(env(safe-area-inset-bottom,0px) + 106px)}
 .dusk-stick,.dusk-knob{position:absolute;pointer-events:none;border-radius:50%;box-sizing:border-box;display:none}
-.dusk-stick{width:120px;height:120px;border:2px solid #c8b6ff;background:rgba(92,58,160,.25)}
-.dusk-knob{width:52px;height:52px;border:2px solid #c8b6ff;background:rgba(160,112,255,.5)}
 `;
 
 export function createInput(rootEl) {
@@ -50,7 +48,9 @@ export function createInput(rootEl) {
   for (const [name, label] of [["attack", "Attack"], ["dodge", "Dodge"], ["skill", "Bash"]]) {
     const b = doc.createElement("div");
     b.className = "dusk-tbtn " + name;
-    b.textContent = label;
+    b.setAttribute("aria-label", label);
+    b.append(iconEl(name === "skill" ? "bash" : name, doc));
+    const lbl = doc.createElement("span"); lbl.className = "lbl"; lbl.textContent = label; b.append(lbl);
     b.dataset.touchBtn = name;
     layer.appendChild(b);
     btnEls[name] = b;

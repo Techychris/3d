@@ -15,6 +15,9 @@ Browser game built with three.js r187. Fight through 3 floors of floating-island
 - HUD v2, effect lines on shrine cards, double-tap zoom blocked on phones.
 - Add `?q=low` to the URL to force the low-quality preset on slow devices.
 
+## UI design system
+The UI looks come from the Dusk Isles UI design system: `src/ui/design-system/tokens.css` and `components.css` are the same files the design system publishes; `src/ui/layout.css` only positions them over the game. Icons live in `src/ui/icons.js` (34 line icons, `currentColor`). `node tests/gate.cjs <url>` runs the component gate (contrast, 4px grid, radii, motion, focus, hover, keyboard) on the UI demo pages (`tests/ui-demo.html?s=hub|hud|shrine|recap|settings|codex|pause`).
+
 ## Source and tests
 This branch holds the built site at the root (`index.html`, `game.js`) and everything else in `source/`.
 
@@ -22,7 +25,7 @@ This branch holds the built site at the root (`index.html`, `game.js`) and every
 cd source
 npm install
 npm run build      # esbuild -> dist/game.js (copy it and index.html to the root to publish)
-npm test           # 1,035 unit tests (node:test, jsdom)
+npm test           # 1,042 unit tests (node:test, jsdom)
 npm run coverage   # fails below 100% lines, branches or functions; see tests/COVERAGE.txt
 python3 tests/play.py god   # headless bot playthrough (needs playwright + Chrome)
 ```

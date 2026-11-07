@@ -217,7 +217,7 @@ describe("HUD", () => {
   it("renders build chips sorted by count, with pips and on/max classes", () => {
     ui.hud.update({ tags: { fire: 3, frost: 2, bleed: 1, crit: 0 } });
     const chips = qa(".tagchip");
-    assert.deepEqual(chips.map((c) => c.querySelector("span").textContent), ["Fire", "Frost", "Bleed"]);
+    assert.deepEqual(chips.map((c) => c.querySelector("span:not(.ico)").textContent), ["Fire", "Frost", "Bleed"]);
     assert.equal(chips[0].classList.contains("max"), true);
     assert.equal(chips[1].classList.contains("on"), true);
     assert.equal(chips[2].classList.contains("on"), false);
@@ -230,7 +230,7 @@ describe("HUD", () => {
 
   it("uses the raw key for unknown tags and clears chips when no tags remain", () => {
     ui.hud.update({ tags: { zap: 1 } });
-    assert.equal(q(".tagchip span").textContent, "zap");
+    assert.equal(q(".tagchip span:not(.ico)").textContent, "zap");
     ui.hud.update({});
     assert.equal(qa(".tagchip").length, 0);
   });
@@ -256,18 +256,22 @@ describe("HUD", () => {
     assert.equal(q(".hud-top").hidden, true);
   });
 
-  it("shows ability slots as ready with their label, or counts down the cooldown", () => {
+  it("shows ability slots as ready (icon and key, no text), or counts down the cooldown", () => {
     ui.hud.update({ dodgeCd: 0, dodgeMax: 2, skillCd: 1.23, skillMax: 4 });
     const [dodge, bash] = qa(".slot");
     assert.equal(dodge.classList.contains("ready"), true);
-    assert.equal(dodge.querySelector(".lbl").textContent, "Dodge");
+    assert.equal(dodge.querySelector(".lbl").textContent, "");
+    assert.equal(dodge.getAttribute("aria-label"), "Dodge (Space)");
+    assert.ok(dodge.querySelector(".ico-dodge svg"), "dodge icon");
+    assert.ok(bash.querySelector(".ico-bash svg"), "bash icon");
     assert.equal(dodge.querySelector("i").style.width, "100%");
     assert.equal(bash.classList.contains("ready"), false);
     assert.equal(bash.querySelector(".lbl").textContent, "1.2s");
     assert.equal(bash.querySelector("i").style.width, "69%");
     ui.hud.update({ dodgeCd: 0, dodgeMax: 2, skillCd: 0 });
     assert.equal(bash.classList.contains("ready"), true);
-    assert.equal(bash.querySelector(".lbl").textContent, "Bash");
+    assert.equal(bash.querySelector(".lbl").textContent, "");
+    assert.equal(bash.getAttribute("aria-label"), "Bash (L)");
   });
 
   it("treats cooldowns at or under 0.05 s as ready and clamps progress to 0..100%", () => {
@@ -353,12 +357,12 @@ describe("showHub", () => {
     assert.equal(screen.hidden, false);
     assert.equal(screen.getAttribute("aria-label"), "Camp");
     assert.equal(q("h1", screen).textContent, "Dusk Camp");
-    assert.deepEqual(qa(".stat span:last-child", screen).map((s) => s.textContent), ["50", "2 of 3", "1 of 2"]);
+    assert.deepEqual(qa(".stat > span:last-child", screen).map((s) => s.textContent), ["50", "2 of 3", "1 of 2"]);
     button("Start run").click();
     button("Daily seed run").click();
     button("Codex").click();
     button("Settings").click();
-    button("Vigor +5% max HP: 30 embers").click();
+    button("Raise vigor (30 embers)").click();
     assert.deepEqual(calls, ["start", "daily", "codex", "settings", "upgrade:vigor"]);
   });
 
@@ -383,7 +387,7 @@ describe("showHub", () => {
     ui.showHub();
     assert.equal(q("h1").textContent, "Dusk Camp");
     assert.equal(button("Vigor maxed").disabled, true);
-    assert.deepEqual(qa(".stat span:last-child").map((s) => s.textContent), ["0", "0 of 3", "0 of 2"]);
+    assert.deepEqual(qa(".stat > span:last-child").map((s) => s.textContent), ["0", "0 of 3", "0 of 2"]);
     button("Start run").click();
     button("Settings").click();
   });
@@ -425,7 +429,7 @@ describe("showShrine", () => {
     assert.deepEqual(qa(".key", els[0]).map((k) => k.textContent), ["[1]"]);
     assert.equal(q("h3", els[0]).textContent, "Ember Blade");
     assert.equal(els[0].getAttribute("aria-label"), "Ember Blade, completes a combo");
-    assert.equal(q(".combo", els[0]).textContent, "COMBO");
+    assert.equal(q(".combo", els[0]).textContent, "Combo");
     assert.equal(q(".effect", els[0]).textContent, "+10% fire damage");
     assert.deepEqual(qa(".tag", els[0]).map((t) => t.textContent), ["Fire", "Crit (owned)"]);
     assert.equal(q(".tag.owned", els[0]).textContent, "Crit (owned)");
@@ -434,7 +438,7 @@ describe("showShrine", () => {
     assert.equal(q(".tag.owned", els[1]), null);
     assert.equal(q(".pairs", els[1]).textContent, "Pairs with your Ember Blade");
     assert.equal(q(".bonus", els[1]).textContent, "Bonus: +1 Frost");
-    assert.equal(q(".combo", els[1]).textContent, "COMBO");
+    assert.equal(q(".combo", els[1]).textContent, "Combo");
     assert.equal(els[2].getAttribute("aria-label"), "Plain Cloak");
     assert.equal(q(".combo", els[2]), null);
     assert.equal(q(".effect", els[2]), null);
@@ -901,5 +905,43 @@ describe("rotate, loading, toast and teardown", () => {
     } finally {
       field.remove();
     }
+  });
+});
+
+// ---------------------------------------------------------------- icons in the UI (added with the icon set)
+describe("icons in the UI", () => {
+  let dom, ui, root;
+  before(async () => { dom = await installDom(); root = document.getElementById("ui"); ui = createUI(root); });
+  after(() => dom.cleanup());
+  it("puts icons on HUD pieces: pause is icon-only, embers lead with the ember, chips with their tag", () => {
+    ui.hud.show(true);
+    ui.hud.update({ currency: 7, tags: { fire: 1, frost: 2 } });
+    const pause = root.querySelector(".pausebtn");
+    assert.equal(pause.textContent.trim(), "");
+    assert.equal(pause.getAttribute("aria-label"), "Pause");
+    assert.ok(pause.querySelector(".ico-pause svg"));
+    assert.ok(root.querySelector(".hud-tr .coin .ico-ember svg"));
+    assert.equal(root.querySelector(".hud-tr .coin").textContent, "7");
+    assert.ok(root.querySelector(".tagchip .ico-frost svg") && root.querySelector(".tagchip .ico-fire svg"));
+    assert.ok(root.querySelector(".hud-top.bossbar") && root.querySelector(".hud-bl.tagchips"));
+  });
+  it("leads menu buttons with icons and keeps their text", () => {
+    ui.showHub({ currency: 3, endings: [], upgrades: {} }, { upgradeCost: 30 });
+    const label = (t) => [...root.querySelectorAll("button")].find((b) => b.textContent.includes(t));
+    for (const [t, ic] of [["Start run", "play"], ["Daily seed run", "daily"], ["Codex", "codex"], ["Settings", "settings"], ["Raise vigor", "vigor"]]) {
+      assert.ok(label(t).querySelector(".ico-" + ic + " svg"), t + " has " + ic);
+    }
+    assert.ok(root.querySelector(".stat .coin .ico-ember"));
+    ui.showRecap({ won: true, endingsNew: ["Reached the spire's heart"], currencyKept: 9 }, {});
+    assert.ok(root.querySelector(".accent .ico-endings"));
+    assert.equal(root.querySelector(".recap .coin").textContent, "9");
+    ui.showSettings({ music: 0.5, sfx: 0.5 }, {});
+    assert.ok(root.querySelector(".ico-music") && root.querySelector(".ico-sound"));
+  });
+  it("puts a tag icon on shrine and codex tags", () => {
+    ui.showShrine([{ id: "a", name: "A", tags: [{ id: "bleed", name: "Bleed", owned: true }], desc: "d" }], {});
+    assert.ok(root.querySelector(".card .tag.owned .ico-bleed"));
+    ui.showCodex([{ name: "B", tags: ["speed"], desc: "x", seen: true }], {});
+    assert.ok(root.querySelector(".entry .tag .ico-speed"));
   });
 });

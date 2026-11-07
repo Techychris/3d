@@ -1,0 +1,186 @@
+/* Dusk Isles UI components. Values come from tokens.css; this sheet only composes them.
+   Shared file: the game ships this exact sheet, and the Dusk Isles UI design system publishes it as components/bundle.css.
+   In game every rule is scoped under .dusk-ui, the overlay root above the canvas.
+   Spacing on a 4px grid; type 12 / 13 / 14 / 16 / 20 / 26 / 38px; motion uses only the two curves below. */
+.dusk-ui{--ease-out:cubic-bezier(0.22,1,0.36,1);--ease-in-out:cubic-bezier(0.77,0,0.175,1);
+  color:var(--text);font:16px/1.4 var(--font-ui);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;-webkit-user-select:none;user-select:none}
+.dusk-ui *{box-sizing:border-box}
+.dusk-ui p{margin:0;text-wrap:pretty}
+.dusk-ui h1,.dusk-ui h2,.dusk-ui h3{font-family:var(--font-display);margin:0;font-weight:700;letter-spacing:.01em;text-wrap:balance}
+.dusk-ui h1{font-size:2.4rem;color:var(--title)}
+.dusk-ui h2{font-size:1.6rem;color:var(--title)}
+.dusk-ui h3{font-size:1.25rem}
+.dusk-ui .muted{color:var(--muted)}
+.dusk-ui .accent{color:var(--amber);font-weight:600}
+.dusk-ui .coin{display:inline-flex;align-items:center;gap:var(--space-4);color:var(--amber);font-weight:600}
+.dusk-ui .coin .ico{color:var(--ember)}
+.dusk-ui .warn{color:var(--danger-soft);font-weight:600}
+.dusk-ui .stack{display:flex;flex-direction:column;gap:var(--space-12);align-items:stretch}
+.dusk-ui .row{display:flex;gap:var(--space-12);flex-wrap:wrap;align-items:center;justify-content:center}
+.dusk-ui .center{text-align:center;align-items:center}
+
+/* Icon: inline SVG from the icon set (24px grid, 2px round strokes, currentColor), sized by its text */
+.dusk-ui .ico,.dusk-tbtn .ico{display:inline-flex;width:var(--icon);height:var(--icon);flex:none}
+.dusk-ui .ico svg,.dusk-tbtn .ico svg{width:100%;height:100%;display:block}
+
+/* Button */
+.dusk-ui button{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-8);font:inherit;color:inherit;cursor:pointer;min-height:var(--touch-min);min-width:var(--touch-min);border-radius:var(--radius-xl);border:2px solid var(--line);background:var(--control);padding:var(--space-8) var(--space-16);touch-action:manipulation;
+  transition:background-color .12s var(--ease-out),transform .12s var(--ease-out)}
+.dusk-ui button .ico{width:1.125em;height:1.125em}
+.dusk-ui button:hover{background:var(--control-hover)}
+.dusk-ui button:active{transform:scale(.97)}
+.dusk-ui button:focus-visible,.dusk-ui input:focus-visible,.dusk-ui select:focus-visible,.dusk-ui [tabindex]:focus-visible{outline:3px solid var(--focus-ring);outline-offset:2px;box-shadow:var(--shadow-focus)}
+.dusk-ui button[disabled]{opacity:var(--disabled);cursor:not-allowed;transform:none}
+.dusk-ui .primary{background:var(--amber);color:var(--on-amber);border-color:var(--amber-edge);font-weight:600}
+.dusk-ui .primary:hover{background:var(--amber-hover)}
+.dusk-ui .big{min-height:var(--button-lg-height);font-size:1.25rem;padding:var(--space-12) var(--space-32)}
+.dusk-ui .pausebtn{background:var(--plate)}
+.dusk-ui button.icon-only{padding:var(--space-8)}
+.dusk-ui button.icon-only .ico{width:1.25em;height:1.25em}
+
+/* Screen + Panel + Plate */
+.dusk-ui .screen{display:flex;align-items:center;justify-content:center;padding:var(--space-16);background:var(--scrim)}
+.dusk-ui .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-xl);padding:var(--space-24);box-shadow:var(--shadow-panel);max-width:100%}
+.dusk-ui .plate{background:var(--plate);border:1px solid var(--line);border-radius:var(--radius-xl);padding:var(--space-8) var(--space-12)}
+
+/* Hub stat */
+.dusk-ui .stats{display:flex;gap:var(--space-8);flex-wrap:wrap;justify-content:center}
+.dusk-ui .stat{display:flex;gap:var(--space-12);justify-content:space-between;padding:var(--space-8) var(--space-12);background:var(--well);border-radius:var(--radius-md)}
+
+/* Meters: health (+shield), boss */
+.dusk-ui .bar{position:relative;height:16px;border-radius:var(--radius-md);background:var(--track);overflow:hidden;border:1px solid var(--meter-edge)}
+.dusk-ui .bar>i{position:absolute;left:0;top:0;bottom:0;display:block}
+.dusk-ui .bar b{position:absolute;inset:0;text-align:center;color:var(--meter-text);text-shadow:0 1px 2px var(--ground);white-space:pre}
+.dusk-ui .bar.hp{height:var(--meter-hp);border-radius:var(--radius-xl)}
+.dusk-ui .bar.hp>i{background:linear-gradient(var(--hp-top),var(--hp-bottom))}
+.dusk-ui .bar.hp>i.sh{top:auto;height:4px;background:var(--heal)}
+.dusk-ui .bar.hp b{font-size:.875rem;line-height:22px;font-weight:600}
+.dusk-ui .bar.hp.low{animation:dusk-low 1s var(--ease-in-out) infinite}
+.dusk-ui .bar.hp.low>i:not(.sh){background:var(--danger)}
+@keyframes dusk-low{50%{box-shadow:0 0 0 2px var(--danger)}}
+.dusk-ui .bossbar{text-align:center;width:420px;max-width:100%}
+.dusk-ui .bossbar .nm{font-family:var(--font-display);font-size:.875rem;margin-bottom:var(--space-4);color:var(--title);letter-spacing:.02em}
+.dusk-ui .bar.boss{height:var(--meter-boss)}
+.dusk-ui .bar.boss>i{background:linear-gradient(var(--hp-top),var(--boss-bottom))}
+.dusk-ui .bar.boss u{position:absolute;top:0;bottom:0;width:2px;background:var(--plate);text-decoration:none}
+
+/* Ability slot (desktop) */
+.dusk-ui .slots{display:flex;gap:var(--space-8)}
+.dusk-ui .slot{flex:1;position:relative;height:var(--slot-height);border-radius:var(--radius-sm);background:var(--track);overflow:hidden;border:1px solid var(--meter-edge);display:flex;align-items:center;gap:var(--space-8);padding:0 var(--space-8);font-size:.875rem;font-weight:600;color:var(--muted)}
+.dusk-ui .slot>i{position:absolute;left:0;top:0;bottom:0;background:var(--cooling)}
+.dusk-ui .slot>*{position:relative}
+.dusk-ui .slot kbd{font:inherit;font-size:.75rem;font-weight:400;padding:1px var(--space-4);border-radius:var(--radius-xs);border:1px solid var(--key-edge);background:var(--key-fill);color:var(--text)}
+.dusk-ui .slot.ready{border-color:var(--heal);color:var(--text)}
+.dusk-ui .slot.ready>i{background:var(--ready-wash)}
+.dusk-ui .slot.ready .ico{color:var(--heal)}
+
+/* Progress plate: floor, route pips, foes, embers, saved */
+.dusk-ui .prog{display:flex;flex-direction:column;align-items:flex-end;gap:var(--space-4);padding:var(--space-4) var(--space-12);font-weight:600;white-space:nowrap}
+.dusk-ui .prog .row1,.dusk-ui .prog .row2{display:flex;gap:var(--space-12);align-items:center}
+.dusk-ui .prog .row2{font-size:.8125rem}
+.dusk-ui .prog .fl{font-size:.875rem}
+.dusk-ui .pips{display:flex;gap:var(--space-4)}
+.dusk-ui .pips i{width:var(--pip);height:var(--pip);border-radius:50%;border:2px solid var(--muted);display:block}
+.dusk-ui .pips i.done{background:var(--muted)}
+.dusk-ui .pips i.now{background:var(--amber);border-color:var(--amber);outline:2px solid var(--amber);outline-offset:1px}
+.dusk-ui .pips i.elite{border-color:var(--danger)}.dusk-ui .pips i.elite.done,.dusk-ui .pips i.elite.now{background:var(--danger)}
+.dusk-ui .pips i.elite.now{outline-color:var(--danger)}
+.dusk-ui .pips i.treasure{border-color:var(--gold)}.dusk-ui .pips i.treasure.done{background:var(--gold)}
+.dusk-ui .pips i.rest{border-color:var(--heal)}.dusk-ui .pips i.rest.done,.dusk-ui .pips i.rest.now{background:var(--heal)}
+.dusk-ui .pips i.rest.now{outline-color:var(--heal)}
+.dusk-ui .pips i.boss{border-radius:0;transform:rotate(45deg);border-color:var(--danger)}
+.dusk-ui .pips i.boss.now{background:var(--danger);outline-color:var(--danger)}
+.dusk-ui .foes{color:var(--muted)}
+.dusk-ui .foes.clear{color:var(--heal)}
+.dusk-ui .saved{color:var(--heal);font-size:.75rem}
+
+/* Build tag chip */
+.dusk-ui .tagchips{display:flex;gap:var(--space-8);flex-wrap:wrap}
+.dusk-ui .tagchip{display:flex;align-items:center;gap:var(--space-8);background:var(--plate);border:1px solid var(--line);border-radius:var(--radius-md);padding:var(--space-4) var(--space-8);font-size:.875rem;font-weight:600;color:var(--muted)}
+.dusk-ui .tagchip .dots{display:flex;gap:var(--space-4)}
+.dusk-ui .tagchip .dots i{width:6px;height:6px;border-radius:50%;border:1px solid currentColor;display:block}
+.dusk-ui .tagchip .dots i.f{background:currentColor}
+.dusk-ui .tagchip.on{color:var(--title);border-color:var(--amber)}
+.dusk-ui .tagchip.max{color:var(--on-amber);background:var(--amber);border-color:var(--amber-edge)}
+
+/* Shrine card */
+.dusk-ui .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-16)}
+.dusk-ui .card{position:relative;display:flex;flex-direction:column;gap:var(--space-12);text-align:left;padding:var(--space-16);background:var(--panel-2);border:2px solid var(--line);border-radius:var(--radius-xl)}
+.dusk-ui .card.sel{border-color:var(--amber);box-shadow:var(--shadow-card-selected)}
+.dusk-ui .card .key{position:absolute;top:var(--space-8);right:var(--space-12);font-size:.8125rem;color:var(--muted)}
+.dusk-ui .card h3{padding-right:var(--space-24)}
+.dusk-ui .card .tags{display:flex;gap:var(--space-8);flex-wrap:wrap}
+.dusk-ui .card .tag{display:inline-flex;align-items:center;gap:var(--space-4);border:1px solid var(--line);border-radius:var(--radius-pill);padding:2px var(--space-8);font-size:.8125rem;background:var(--well)}
+.dusk-ui .card .tag.owned{border:2px solid var(--amber);color:var(--title);font-weight:600;border-radius:var(--radius-sm)}
+.dusk-ui .card .effect{color:var(--title);font-weight:600}
+.dusk-ui .card .flavor{color:var(--muted);font-style:italic}
+.dusk-ui .card .pairs{font-size:.875rem;color:var(--title)}
+.dusk-ui .card .bonus{font-size:.875rem;color:var(--heal)}
+.dusk-ui .card .combo{align-self:flex-start;background:var(--heal);color:var(--on-heal);font-weight:600;font-size:.75rem;padding:2px var(--space-8);border-radius:var(--radius-sm)}
+.dusk-ui .card .grow{flex:1}
+.dusk-ui .card .take{width:100%}
+
+/* Recap tip */
+.dusk-ui .tipbox{background:var(--well);border-left:4px solid var(--amber);padding:var(--space-12);border-radius:var(--radius-sm)}
+.dusk-ui .lost{color:var(--danger-soft)}
+
+/* Settings field */
+.dusk-ui .field{display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);min-height:var(--touch-min);padding:0 var(--space-8);margin:0 calc(-1 * var(--space-8));border-radius:var(--radius-md);transition:background-color .12s var(--ease-out)}
+.dusk-ui label.field:hover{background:var(--well)}
+.dusk-ui .field select:hover{border-color:var(--amber)}
+.dusk-ui .field>span:first-child{display:inline-flex;align-items:center;gap:var(--space-8)}
+.dusk-ui .field input[type=range]{flex:1;max-width:220px;min-height:var(--touch-min);accent-color:var(--amber)}
+.dusk-ui .field input[type=checkbox]{width:28px;height:28px;margin:0;accent-color:var(--amber)}
+.dusk-ui .field select{min-height:var(--touch-min);background:var(--field);color:var(--text);border:2px solid var(--line);border-radius:var(--radius-md);padding:var(--space-8) var(--space-12);font:inherit}
+
+/* Codex entry */
+.dusk-ui .codex-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--space-12)}
+.dusk-ui .entry{background:var(--well);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--space-12)}
+.dusk-ui .entry.unseen{border-style:dashed;color:var(--muted)}
+.dusk-ui .entry .tags{display:flex;gap:var(--space-4);flex-wrap:wrap;margin:var(--space-4) 0}
+.dusk-ui .entry .tag{display:inline-flex;align-items:center;gap:var(--space-4);font-size:.75rem;border:1px solid var(--line);border-radius:var(--radius-pill);padding:1px var(--space-8)}
+
+/* Toast, loading, rotate prompt */
+.dusk-ui .toast{display:inline-block;max-width:90vw;background:var(--scrim-solid);border:1px solid var(--amber);border-radius:var(--radius-xl);padding:var(--space-12) var(--space-20);text-align:center}
+.dusk-ui .loading,.dusk-ui .rotate{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-16);background:var(--scrim-solid);text-align:center}
+.dusk-ui .loading{font-family:var(--font-display);font-size:1.25rem}
+.dusk-ui .spin{width:36px;height:36px;border-radius:50%;border:4px solid var(--line);border-top-color:var(--amber);animation:dusk-spin 1s linear infinite}
+@keyframes dusk-spin{to{transform:rotate(360deg)}}
+.dusk-ui .phone{width:44px;height:72px;border:4px solid var(--amber);border-radius:var(--radius-lg);animation:dusk-rot 2.2s var(--ease-in-out) 2 forwards}
+@keyframes dusk-rot{0%,20%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
+
+/* Hurt vignette */
+.dusk-ui .hurt{position:absolute;inset:0;pointer-events:none;box-shadow:var(--shadow-hurt)}
+
+/* Touch controls: looks only; the input module positions them (absolute, bottom right), outside .dusk-ui */
+.dusk-tbtn{border-radius:50%;box-sizing:border-box;border:2px solid var(--touch-edge);background:var(--touch-fill);color:var(--text);align-items:center;justify-content:center;flex-direction:column;gap:2px;font:600 12px var(--font-ui);text-shadow:0 1px 2px var(--ground);user-select:none}
+.dusk-tbtn.down{background:var(--touch-fill-down);transform:scale(.94)}
+.dusk-tbtn.attack{width:var(--touch-attack);height:var(--touch-attack)}
+.dusk-tbtn.dodge,.dusk-tbtn.skill{width:var(--touch-small);height:var(--touch-small)}
+.dusk-tbtn .ico{width:var(--icon-touch);height:var(--icon-touch)}
+.dusk-tbtn.attack .ico{width:30px;height:30px}
+.dusk-tbtn .lbl{font-size:10px;line-height:1}
+.dusk-tbtn.dodge::before,.dusk-tbtn.skill::before{content:"";position:absolute;inset:-5px;border-radius:50%;pointer-events:none;background:conic-gradient(var(--heal) calc(var(--p,1) * 360deg),var(--ring-track) 0);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px))}
+.dusk-tbtn.cooling{opacity:.6}
+.dusk-tbtn.cooling::before{background:conic-gradient(var(--amber) calc(var(--p,0) * 360deg),var(--ring-track) 0)}
+.dusk-stick{width:120px;height:120px;border-radius:50%;border:2px solid var(--touch-edge);background:var(--touch-fill-soft)}
+.dusk-knob{width:52px;height:52px;border-radius:50%;background:var(--touch-knob);border:2px solid var(--touch-edge)}
+
+/* Narrow screens: shrine cards stack */
+@media (max-width:760px){.dusk-ui .cards{grid-template-columns:1fr}}
+/* Short landscape phones (height 480px or less): compact type and controls */
+@media (max-height:480px){
+ .dusk-ui{font-size:14px}
+ .dusk-ui h1{font-size:1.8rem}.dusk-ui h2{font-size:1.25rem}
+ .dusk-ui .panel{padding:var(--space-12) var(--space-16)}
+ .dusk-ui .big{min-height:48px;font-size:1.125rem}
+ .dusk-ui .cards{grid-template-columns:repeat(3,1fr);gap:var(--space-8)}
+ .dusk-ui .card{padding:var(--space-12);gap:var(--space-8);min-height:0}
+ .dusk-ui .card .key{display:none}
+ .dusk-ui .card h3{font-size:1rem;padding-right:0}
+ .dusk-ui .card p,.dusk-ui .card .pairs,.dusk-ui .card .bonus{font-size:.8125rem}
+ .dusk-ui .card .tag{font-size:.75rem;padding:1px var(--space-8)}
+ .dusk-ui .bar.hp{height:20px}.dusk-ui .bar.hp b{line-height:18px;font-size:.8125rem}
+ .dusk-ui .tagchip{padding:2px var(--space-8);font-size:.75rem}
+}
+@media (prefers-reduced-motion:reduce){.dusk-ui *{animation:none!important;transition:none!important}.dusk-ui .bar.hp.low{box-shadow:0 0 0 2px var(--danger)}}
