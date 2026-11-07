@@ -1,0 +1,1 @@
+{"name":"dusk-roguelite","private":true,"type":"module","scripts":{"build":"esbuild src/main.js --bundle --minify --format=esm --outfile=dist/game.js"},"dependencies":{"esbuild":"^0.28.2","three":"^0.187.0"}}
