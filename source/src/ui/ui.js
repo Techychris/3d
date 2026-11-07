@@ -14,7 +14,7 @@ function h(tag, props, ...kids) {
       else if (k === "text") el.textContent = v;
       else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
       else if (k in el && k !== "list") el[k] = v;
-      else el.setAttribute(k, v === true ? "" : v);
+      else el.setAttribute(k, v);
     }
   }
   for (const c of kids.flat()) if (c != null && c !== false) el.append(c.nodeType ? c : document.createTextNode(c));
@@ -103,15 +103,20 @@ export function createUI(rootEl) {
       setTxt(curText, "cur", String(s.currency | 0));
       // floor progress: one pip per room, boss last
       const rooms = s.rooms || 0, room = s.room || 0, isBoss = rooms && room >= rooms - 1;
-      setTxt(floorText, "fl", s.floor != null ? "Floor " + s.floor + (isBoss ? " · Boss" : rooms ? " · Room " + (room + 1) + " of " + (rooms - 1) : "") : "");
-      const pk = rooms + ":" + room;
+      const path = s.path || [];
+      const RT = { elite: "Elite", treasure: "Treasure", rest: "Rest" }, cur = path[room];
+      setTxt(floorText, "fl", s.floor != null ? "Floor " + s.floor + (isBoss ? " · Boss" : rooms ? " · " + (RT[cur] || "Room") + " " + (room + 1) + " of " + (rooms - 1) : "") : "");
+      const pk = rooms + ":" + room + ":" + path.join(",");
       if (last.pips !== pk) {
         last.pips = pk;
         const out = [];
-        for (let i = 0; i < rooms; i++) out.push(h("i", { class: (i === rooms - 1 ? "boss " : "") + (i < room ? "done" : i === room ? "now" : "") }));
+        for (let i = 0; i < rooms; i++) {
+          const t = i === rooms - 1 ? "boss" : path[i] || "";
+          out.push(h("i", { class: [t, i < room ? "done" : i === room ? "now" : ""].join(" "), title: t }));
+        }
         pips.replaceChildren(...out);
       }
-      setTxt(foesText, "foes", s.foes == null ? "" : s.foes > 0 ? s.foes + (s.foes === 1 ? " foe left" : " foes left") : "Portal open");
+      setTxt(foesText, "foes", s.foes == null ? "" : s.foes > 0 ? s.foes + (s.foes === 1 ? " foe left" : " foes left") : (s.exitCount > 1 ? "Choose a portal" : "Portal open"));
       foesText.classList.toggle("clear", s.foes === 0);
       savedChip.classList.toggle("show", !!s.saved);
       setCd(dodgeSlot, "dodge", s.dodgeCd || 0, s.dodgeMax || 1, "dodge");
@@ -151,7 +156,7 @@ export function createUI(rootEl) {
   function open(panel, focusEl) {
     screen.replaceChildren(panel);
     screen.hidden = false;
-    screen.setAttribute("aria-label", panel.getAttribute("aria-label") || "Menu");
+    screen.setAttribute("aria-label", panel.getAttribute("aria-label")); // every panel is built with one
     screen.scrollTop = 0;
     const f = focusEl || panel.querySelector(".primary") || panel.querySelector("button");
     if (f) setTimeout(() => f.focus({ preventScroll: true }), 0);

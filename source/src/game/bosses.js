@@ -1,7 +1,7 @@
 // Module B: bosses. Three bosses, 3 phases (66% / 33% hp), every attack telegraphed >= 0.6 s (we use 0.8-1.0 s).
 import { yawOf, clamp } from "./world.js";
 import {
-  createActor, createEnemy, tele, shoot, aimLine, say, turn, walk, lerp, clampInside,
+  createActor, createEnemy, tele, killTelegraphs, shoot, aimLine, say, turn, walk, lerp, clampInside,
 } from "./enemies.js";
 
 const TMP = { x: 0, z: 0 };
@@ -72,9 +72,16 @@ function bossBrain(e, w, dt) {
   if (!p || p.dead) return;
   const dx = p.x - e.x, dz = p.z - e.z, d = Math.hypot(dx, dz) || 0.0001;
   const ux = dx / d, uz = dz / d;
+  const helpless = e.status.stunT > 0 || e.status.frozenT > 0;
+  if (e.action && helpless) {
+    // a stun or freeze interrupts the queued attack, like regular enemies (bosses get half-length stuns)
+    killTelegraphs(e); e.action = null; e.gap = e.def.gap[e.phase - 1];
+    return;
+  }
   if (e.action) {
     if (runAction(e.action, e, w, dt)) { e.action = null; e.gap = e.def.gap[e.phase - 1]; }
   } else {
+    if (helpless) return;
     e.gap -= dt;
     turn(e, yawOf(dx, dz), 3 * dt);
     if (e.speedMul > 0.01) e.def.move(e, w, dt, d, ux, uz);

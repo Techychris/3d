@@ -158,8 +158,9 @@ export function describeCard(itemId, ownedIds) {
   }
   let bonusNote = null;
   if (combo.length) {
-    const best = combo.reduce((a, b) => ((counts[b] || 0) > (counts[a] || 0) ? b : a));
-    const after = (counts[best] || 0) + 1;
+    // comboTags only returns tags already owned once or twice, so counts[t] is always defined here
+    const best = combo.reduce((a, b) => (counts[b] > counts[a] ? b : a));
+    const after = counts[best] + 1;
     bonusNote = `${TAGS[best].name} ×${after}: ${after >= 3 ? TAGS[best].three : TAGS[best].two}`;
   }
   return {

@@ -53,6 +53,7 @@ export function normalizeMeta(m) {
     },
   };
 }
+const ROOM_KINDS = ["combat", "elite", "treasure", "rest"];
 function normalizeRun(r) {
   if (!r || typeof r !== "object") return null;
   if (!(typeof r.seed === "string" || typeof r.seed === "number")) return null;
@@ -64,6 +65,7 @@ function normalizeRun(r) {
     hero: typeof r.hero === "string" ? r.hero : "hero-warrior",
     startedAt: num(r.startedAt, 0),
     daily: !!r.daily, hitsTaken: Math.floor(num(r.hitsTaken, 0, 0)), embers: Math.floor(num(r.embers, 0, 0)),
+    roomType: ROOM_KINDS.includes(r.roomType) ? r.roomType : "combat", path: strs(r.path).filter((t) => ROOM_KINDS.includes(t)).slice(0, 12),
   };
 }
 
@@ -79,7 +81,7 @@ export function resetProgress() {
 }
 
 export function newRun(seed) {
-  return { seed, floor: 1, room: 0, items: [], runCurrency: 0, hp: null, hero: "hero-warrior", startedAt: Date.now(), daily: false, hitsTaken: 0, embers: 0 };
+  return { seed, floor: 1, room: 0, items: [], runCurrency: 0, hp: null, hero: "hero-warrior", startedAt: Date.now(), daily: false, hitsTaken: 0, embers: 0, roomType: "combat", path: [] };
 }
 
 export function upgradeCost(meta, which) {

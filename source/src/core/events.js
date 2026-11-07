@@ -5,7 +5,8 @@ export function createEvents() {
     on(name, fn) {
       if (!map.has(name)) map.set(name, new Set());
       map.get(name).add(fn);
-      return () => map.get(name).delete(fn);
+      const set = map.get(name);
+      return () => set.delete(fn); // safe after clear(): deletes from the detached set
     },
     emit(name, payload) {
       const s = map.get(name);

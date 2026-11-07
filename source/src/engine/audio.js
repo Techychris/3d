@@ -47,10 +47,10 @@ export function createAudio() {
   function tone(o) {
     const t0 = (o.at ?? ctx.currentTime);
     const osc = ctx.createOscillator(), g = ctx.createGain();
-    osc.type = o.type || "sine";
+    osc.type = o.type;
     osc.frequency.setValueAtTime(o.f0, t0);
     if (o.f1) osc.frequency.exponentialRampToValueAtTime(o.f1, t0 + o.dur);
-    const a = o.attack ?? 0.005, v = o.vol ?? 0.3;
+    const a = o.attack ?? 0.005, v = o.vol;
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.linearRampToValueAtTime(v, t0 + a);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + o.dur);
@@ -65,7 +65,7 @@ export function createAudio() {
     if (o.f1) f.frequency.exponentialRampToValueAtTime(o.f1, t0 + o.dur);
     f.Q.value = o.q ?? 1;
     const g = ctx.createGain();
-    g.gain.setValueAtTime(o.vol ?? 0.3, t0);
+    g.gain.setValueAtTime(o.vol, t0);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + o.dur);
     src.connect(f); f.connect(g); g.connect(sfxGain);
     src.start(t0, Math.random() * 0.5); src.stop(t0 + o.dur + 0.03);
@@ -97,10 +97,10 @@ export function createAudio() {
   const lastPlay = {};
   function play(name) {
     if (!ctx || !unlocked || muted || ctx.state !== "running") return;
-    const fn = SOUNDS[name];
+    const fn = Object.hasOwn(SOUNDS, name) ? SOUNDS[name] : null;
     if (!fn) return;
     const now = ctx.currentTime;
-    if (now - (lastPlay[name] || -1) < 0.03) return; // avoid stacking identical sounds
+    if (now - (lastPlay[name] ?? -Infinity) < 0.03) return; // avoid stacking identical sounds
     lastPlay[name] = now;
     fn();
   }

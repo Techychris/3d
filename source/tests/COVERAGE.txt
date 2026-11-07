@@ -1,0 +1,93 @@
+# start of coverage report
+# ----------------------------------------------------------------------------
+# file                        | line % | branch % | funcs % | uncovered lines
+# ----------------------------------------------------------------------------
+# src                         |        |          |         | 
+#  assets                     |        |          |         | 
+#   boss-dragon-whelp.js      | 100.00 |   100.00 |  100.00 | 
+#   boss-golem.js             | 100.00 |   100.00 |  100.00 | 
+#   boss-necromancer.js       | 100.00 |   100.00 |  100.00 | 
+#   boss-slime-king.js        | 100.00 |   100.00 |  100.00 | 
+#   enemy-bat.js              | 100.00 |   100.00 |  100.00 | 
+#   enemy-brute.js            | 100.00 |   100.00 |  100.00 | 
+#   enemy-cultist.js          | 100.00 |   100.00 |  100.00 | 
+#   enemy-ghost.js            | 100.00 |   100.00 |  100.00 | 
+#   enemy-goblin-archer.js    | 100.00 |   100.00 |  100.00 | 
+#   enemy-imp.js              | 100.00 |   100.00 |  100.00 | 
+#   enemy-mimic.js            | 100.00 |   100.00 |  100.00 | 
+#   enemy-mushroom.js         | 100.00 |   100.00 |  100.00 | 
+#   enemy-rat-swarm.js        | 100.00 |   100.00 |  100.00 | 
+#   enemy-scorpion.js         | 100.00 |   100.00 |  100.00 | 
+#   enemy-skeleton-knight.js  | 100.00 |   100.00 |  100.00 | 
+#   enemy-skeleton.js         | 100.00 |   100.00 |  100.00 | 
+#   enemy-slime.js            | 100.00 |   100.00 |  100.00 | 
+#   enemy-spider.js           | 100.00 |   100.00 |  100.00 | 
+#   enemy-totem.js            | 100.00 |   100.00 |  100.00 | 
+#   enemy-wisp.js             | 100.00 |   100.00 |  100.00 | 
+#   hero-mage.js              | 100.00 |   100.00 |  100.00 | 
+#   hero-paladin.js           | 100.00 |   100.00 |  100.00 | 
+#   hero-ranger.js            | 100.00 |   100.00 |  100.00 | 
+#   hero-rogue.js             | 100.00 |   100.00 |  100.00 | 
+#   hero-warrior.js           | 100.00 |   100.00 |  100.00 | 
+#   pickup-coins.js           | 100.00 |   100.00 |  100.00 | 
+#   pickup-health-potion.js   | 100.00 |   100.00 |  100.00 | 
+#   pickup-heart-container.js | 100.00 |   100.00 |  100.00 | 
+#   pickup-item-pedestal.js   | 100.00 |   100.00 |  100.00 | 
+#   pickup-key.js             | 100.00 |   100.00 |  100.00 | 
+#   pickup-scroll.js          | 100.00 |   100.00 |  100.00 | 
+#   prop-altar.js             | 100.00 |   100.00 |  100.00 | 
+#   prop-barrels.js           | 100.00 |   100.00 |  100.00 | 
+#   prop-bookshelf.js         | 100.00 |   100.00 |  100.00 | 
+#   prop-brazier.js           | 100.00 |   100.00 |  100.00 | 
+#   prop-campfire.js          | 100.00 |   100.00 |  100.00 | 
+#   prop-cauldron.js          | 100.00 |   100.00 |  100.00 | 
+#   prop-chest.js             | 100.00 |   100.00 |  100.00 | 
+#   prop-gravestones.js       | 100.00 |   100.00 |  100.00 | 
+#   prop-shop-stall.js        | 100.00 |   100.00 |  100.00 | 
+#   prop-statue.js            | 100.00 |   100.00 |  100.00 | 
+#   prop-weapon-rack.js       | 100.00 |   100.00 |  100.00 | 
+#   tile-bridge.js            | 100.00 |   100.00 |  100.00 | 
+#   tile-doorway-exit.js      | 100.00 |   100.00 |  100.00 | 
+#   tile-floor-cracked.js     | 100.00 |   100.00 |  100.00 | 
+#   tile-floor-grate.js       | 100.00 |   100.00 |  100.00 | 
+#   tile-floor-moss.js        | 100.00 |   100.00 |  100.00 | 
+#   tile-floor-stone.js       | 100.00 |   100.00 |  100.00 | 
+#   tile-pillar.js            | 100.00 |   100.00 |  100.00 | 
+#   tile-spike-trap.js        | 100.00 |   100.00 |  100.00 | 
+#   tile-stairs-down.js       | 100.00 |   100.00 |  100.00 | 
+#   tile-wall-corner.js       | 100.00 |   100.00 |  100.00 | 
+#   tile-wall-torch.js        | 100.00 |   100.00 |  100.00 | 
+#   tile-wall.js              | 100.00 |   100.00 |  100.00 | 
+#   tile-water.js             | 100.00 |   100.00 |  100.00 | 
+#   vfx-fireball.js           | 100.00 |   100.00 |  100.00 | 
+#   vfx-portal.js             | 100.00 |   100.00 |  100.00 | 
+#   vfx-telegraph-circle.js   | 100.00 |   100.00 |  100.00 | 
+#   vfx-telegraph-cone.js     | 100.00 |   100.00 |  100.00 | 
+#   vfx-telegraph-line.js     | 100.00 |   100.00 |  100.00 | 
+#  core                       |        |          |         | 
+#   events.js                 | 100.00 |   100.00 |  100.00 | 
+#   rng.js                    | 100.00 |   100.00 |  100.00 | 
+#  engine                     |        |          |         | 
+#   assets.js                 | 100.00 |   100.00 |  100.00 | 
+#   audio.js                  | 100.00 |   100.00 |  100.00 | 
+#   backdrop.js               | 100.00 |   100.00 |  100.00 | 
+#   input.js                  | 100.00 |   100.00 |  100.00 | 
+#   render.js                 | 100.00 |   100.00 |  100.00 | 
+#  game                       |        |          |         | 
+#   bosses.js                 | 100.00 |   100.00 |  100.00 | 
+#   combat.js                 | 100.00 |   100.00 |  100.00 | 
+#   enemies.js                | 100.00 |   100.00 |  100.00 | 
+#   fx.js                     | 100.00 |   100.00 |  100.00 | 
+#   items.js                  | 100.00 |   100.00 |  100.00 | 
+#   player.js                 | 100.00 |   100.00 |  100.00 | 
+#   progress.js               | 100.00 |   100.00 |  100.00 | 
+#   rooms.js                  | 100.00 |   100.00 |  100.00 | 
+#   route.js                  | 100.00 |   100.00 |  100.00 | 
+#   world.js                  | 100.00 |   100.00 |  100.00 | 
+#  ui                         |        |          |         | 
+#   style.js                  | 100.00 |   100.00 |  100.00 | 
+#   ui.js                     | 100.00 |   100.00 |  100.00 | 
+# ----------------------------------------------------------------------------
+# all files                   | 100.00 |   100.00 |  100.00 | 
+# ----------------------------------------------------------------------------
+# end of coverage report

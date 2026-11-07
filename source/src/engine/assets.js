@@ -77,20 +77,36 @@ export const DUSK = {
 export const COLORS = { danger: 0xff3d5a, ember: 0xffb060, magic: 0xa070ff, heal: 0x6fe0c0, gold: 0xf0b860, shadow: 0x1a1030 };
 
 export function restyle(group) {
+  // One clone per original material (meshes that shared a material still share it), and every
+  // userData reference an asset's update() keeps is pointed at the clone actually drawn.
+  const swap = new Map();
+  const cloneOf = (m) => {
+    let c = swap.get(m);
+    if (c) return c;
+    c = m.clone();
+    if (c.color && DUSK[c.color.getHex()] !== undefined) c.color.setHex(DUSK[c.color.getHex()]);
+    if (c.emissive && c.emissive.getHex() && DUSK[c.emissive.getHex()] !== undefined) c.emissive.setHex(DUSK[c.emissive.getHex()]);
+    if ("roughness" in c) c.roughness = 0.95;
+    swap.set(m, c);
+    return c;
+  };
   group.traverse(o => {
     if (!o.isMesh) return;
-    const mats = Array.isArray(o.material) ? o.material : [o.material];
-    const out = mats.map(m => {
-      const c = m.clone();
-      if (c.color && DUSK[c.color.getHex()] !== undefined) c.color.setHex(DUSK[c.color.getHex()]);
-      if (c.emissive && c.emissive.getHex() && DUSK[c.emissive.getHex()] !== undefined) c.emissive.setHex(DUSK[c.emissive.getHex()]);
-      if ("roughness" in c) c.roughness = 0.95;
-      return c;
-    });
-    o.material = Array.isArray(o.material) ? out : out[0];
-    const flat = o.name === "shadow" || o.name === "dropLine" || (o.material.transparent && o.material.opacity < 0.6);
+    o.material = Array.isArray(o.material) ? o.material.map(cloneOf) : cloneOf(o.material);
+    const first = Array.isArray(o.material) ? o.material[0] : o.material;
+    const flat = o.name === "shadow" || o.name === "dropLine" || (first.transparent && first.opacity < 0.6);
     o.castShadow = !flat; o.receiveShadow = true;
   });
+  // userData may hold materials directly, in arrays, or in small plain objects ({ parts: { orb: mat } }).
+  const remap = (v, depth) => {
+    if (swap.has(v)) return swap.get(v);
+    if (depth > 0 && v && typeof v === "object" && !v.isObject3D && !v.isMaterial && !v.isBufferGeometry) {
+      if (Array.isArray(v)) return v.map(x => remap(x, depth - 1));
+      if (Object.getPrototypeOf(v) === Object.prototype) for (const k of Object.keys(v)) v[k] = remap(v[k], depth - 1);
+    }
+    return v;
+  };
+  group.traverse(o => { for (const k of Object.keys(o.userData)) o.userData[k] = remap(o.userData[k], 3); });
   return group;
 }
 
@@ -105,8 +121,10 @@ export function makeAsset(id) {
 export function setEmissiveFlash(group, amount, hex = 0xffffff) {
   group.traverse(o => {
     if (!o.isMesh || !o.material || !o.material.emissive || o.name === "shadow" || o.name === "dropLine") return;
-    if (o.userData._baseEmissive === undefined) { o.userData._baseEmissive = o.material.emissive.getHex(); o.userData._baseEI = o.material.emissiveIntensity; }
-    if (amount > 0) { o.material.emissive.setHex(hex); o.material.emissiveIntensity = amount; }
-    else { o.material.emissive.setHex(o.userData._baseEmissive); o.material.emissiveIntensity = o.userData._baseEI; }
+    // base stored on the material: meshes can share one material, so per-mesh storage would record the flash colour
+    const m = o.material, u = m.userData;
+    if (u._baseEmissive === undefined) { u._baseEmissive = m.emissive.getHex(); u._baseEI = m.emissiveIntensity; }
+    if (amount > 0) { m.emissive.setHex(hex); m.emissiveIntensity = amount; }
+    else { m.emissive.setHex(u._baseEmissive); m.emissiveIntensity = u._baseEI; }
   });
 }

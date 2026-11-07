@@ -126,7 +126,8 @@ function separate(e, w) {
     const dx = e.x - o.x, dz = e.z - o.z, min = (e.radius + o.radius) * 0.9;
     const d2 = dx * dx + dz * dz;
     if (d2 < min * min) {
-      const d = Math.sqrt(d2) || 0.001, push = (min - d) * (o.boss ? 0.9 : 0.5);
+      const d = Math.sqrt(d2), push = (min - d) * (o.boss ? 0.9 : 0.5);
+      if (d < 1e-6) { e.x += push * (i % 2 ? 1 : -1); continue; } // stacked exactly: split sideways
       e.x += dx / d * push; e.z += dz / d * push;
     }
   }
@@ -427,7 +428,7 @@ function slimeDef(scaleCircle, maxHop, _s) {
       const cyc = (e.hopT % 0.9) / 0.9;
       if (cyc < 0.35) {
         e.y = Math.sin(cyc / 0.35 * Math.PI) * 0.22;
-        if (d > 0.7) walk(e, ux, uz, e.speed * 2.4, dt);
+        if (d > 1.05) walk(e, ux, uz, e.speed * 2.4, dt);
       } else { e.y = 0; e.sy = 0.9; e.sx = 1.06; }
     },
     start(e, w, d, ux, uz) {

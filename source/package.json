@@ -1,1 +1,17 @@
-{"name":"dusk-roguelite","private":true,"type":"module","scripts":{"build":"esbuild src/main.js --bundle --minify --format=esm --outfile=dist/game.js"},"dependencies":{"esbuild":"^0.28.2","three":"^0.187.0"}}
+{
+  "name": "dusk-roguelite",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/main.js --bundle --minify --format=esm --outfile=dist/game.js",
+    "test": "node --test --experimental-test-module-mocks \"tests/unit/**/*.test.mjs\"",
+    "coverage": "node --test --experimental-test-module-mocks --experimental-test-coverage --test-coverage-include=src/**/*.js --test-coverage-exclude=src/main.js --test-coverage-exclude=tests/** --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 \"tests/unit/**/*.test.mjs\""
+  },
+  "dependencies": {
+    "esbuild": "^0.28.2",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.1"
+  }
+}

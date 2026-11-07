@@ -167,3 +167,6 @@ position:absolute;inset:0;pointer-events:none;color:var(--text);font:16px/1.4 sy
 .dusk-tbtn.cooling{opacity:.6}
 .dusk-tbtn.cooling::before{background:conic-gradient(#f0b860 calc(var(--p,0) * 360deg),rgba(255,255,255,.12) 0)}
 @media (max-height:480px){.dusk-ui .bar.hp{height:20px}.dusk-ui .bar.hp b{line-height:18px;font-size:.8rem}.dusk-ui .tagchip{padding:3px 8px;font-size:.75rem}}
+.dusk-ui .pips i.elite{border-color:var(--danger)}.dusk-ui .pips i.elite.done,.dusk-ui .pips i.elite.now{background:var(--danger)}
+.dusk-ui .pips i.treasure{border-color:#f0b860}.dusk-ui .pips i.treasure.done{background:#f0b860}
+.dusk-ui .pips i.rest{border-color:var(--heal)}.dusk-ui .pips i.rest.done,.dusk-ui .pips i.rest.now{background:var(--heal);box-shadow:0 0 6px var(--heal)}

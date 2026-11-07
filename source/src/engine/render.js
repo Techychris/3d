@@ -25,12 +25,8 @@ export function createRenderer(container) {
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  // gradient dusk sky
-  const c = document.createElement("canvas"); c.width = 2; c.height = 256;
-  const g = c.getContext("2d"), gr = g.createLinearGradient(0, 0, 0, 256);
-  gr.addColorStop(0, "#8f87b8"); gr.addColorStop(0.55, "#c7a9c4"); gr.addColorStop(1, "#e7c3b8");
-  g.fillStyle = gr; g.fillRect(0, 0, 2, 256);
-  const sky = new THREE.CanvasTexture(c); sky.colorSpace = THREE.SRGBColorSpace; scene.background = sky;
+  // sky: the backdrop module (engine/backdrop.js) draws an opaque cloud sea and horizon behind everything
+  scene.background = new THREE.Color(0xc7a9c4);
   const fog = new THREE.Fog(0xc9b0c8, CAM_DIST + 6, CAM_DIST + 34);
 
   const hemi = new THREE.HemisphereLight(0xb9a8e0, 0x4a3a50, 1.5); scene.add(hemi);
@@ -85,6 +81,29 @@ export function createRenderer(container) {
 
   function lookAt(x, z) { target.set(x, 0, z); }
 
+  // Camera follow: the camera trails the player within the current room, eased toward the room centre so
+  // edges stay framed. Bigger rooms zoom out a little (capped so phones stay readable).
+  const frame = { cx: 0, cz: 0, hw: 5, hd: 4 };
+  let snap = true;
+  function setRoomFrame(b) {
+    frame.cx = (b.minX + b.maxX) / 2; frame.cz = (b.minZ + b.maxZ) / 2;
+    frame.hw = (b.maxX - b.minX) / 2; frame.hd = (b.maxZ - b.minZ) / 2;
+    const size = Math.max(b.maxX - b.minX, (b.maxZ - b.minZ) * 1.25);
+    halfH = Math.min(6.0, Math.max(5.2, 5.2 + (size - 10) * 0.25));
+    resize(); snap = true;
+  }
+  function follow(dt, focus) {
+    let x = frame.cx, z = frame.cz;
+    if (focus) {
+      const k = 0.55, mx = Math.max(0, frame.hw - 3.5), mz = Math.max(0, frame.hd - 3);
+      x += Math.max(-mx, Math.min(mx, (focus.x - frame.cx) * k));
+      z += Math.max(-mz, Math.min(mz, (focus.z - frame.cz) * k));
+    }
+    if (snap) { target.set(x, 0, z); snap = false; return; }
+    const a = 1 - Math.exp(-dt * 4);
+    target.x += (x - target.x) * a; target.z += (z - target.z) * a;
+  }
+
   // Warm point lights at every mesh named "flame" in a group (torches, braziers, campfire), up to the preset's cap.
   function addLampsFrom(group) {
     lamps.forEach(l => l.parent && l.parent.remove(l)); lamps = [];
@@ -102,6 +121,7 @@ export function createRenderer(container) {
   function shake(amount) { shakeAmt = Math.max(shakeAmt, amount); }
 
   function render(dt, focus) {
+    follow(dt, focus);
     // camera follow with slight lag + shake rig offset
     shakeAmt *= Math.exp(-dt * 12);
     if (shakeAmt > 0.002) shakeOff.set((Math.random() - 0.5) * 2, (Math.random() - 0.5), (Math.random() - 0.5) * 2).multiplyScalar(shakeAmt);
@@ -123,7 +143,7 @@ export function createRenderer(container) {
   applyPreset("high");
   return {
     renderer, scene, camera, sun,
-    resize, lookAt, render, shake, addLampsFrom,
+    resize, lookAt, render, shake, addLampsFrom, setRoomFrame, get target() { return target; },
     setPreset: applyPreset, get preset() { return preset; }, get maxFps() { return P.maxFps; },
     setBlurAllowed(v) { blurAllowed = v; },
     setZoom(z) { zoom = z; resize(); },

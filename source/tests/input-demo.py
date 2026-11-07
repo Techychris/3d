@@ -1,0 +1,81 @@
+import subprocess, sys
+from playwright.sync_api import sync_playwright
+subprocess.check_call(["npx","esbuild","input-demo.js","--bundle","--outfile=input-demo.bundle.js","--log-level=error"], cwd="/home/claude/game/tests")
+errs=[]
+def check(c,m):
+    print(("ok   " if c else "FAIL ")+m)
+    if not c: errs.append(m)
+with sync_playwright() as p:
+    b = p.chromium.launch(executable_path="/usr/bin/google-chrome", args=["--no-sandbox","--autoplay-policy=no-user-gesture-required"])
+    ctx = b.new_context(viewport={"width":900,"height":500}, has_touch=True)
+    pg = ctx.new_page(); logs=[]
+    pg.on("console", lambda m: logs.append(m.text) if m.type=="error" else None)
+    pg.on("pageerror", lambda e: logs.append(str(e)))
+    pg.goto("file:///home/claude/game/tests/input-demo.html"); pg.wait_for_timeout(200)
+    st = lambda: pg.evaluate("JSON.parse(JSON.stringify(window.__input.state))")
+    # keyboard
+    pg.keyboard.down("d"); pg.wait_for_timeout(100)
+    s=st(); check(s["move"]["x"]==1 and s["move"]["y"]==0, "D moves right")
+    pg.keyboard.down("w"); pg.wait_for_timeout(100)
+    s=st(); check(abs(s["move"]["x"]-0.7071)<0.01 and abs(s["move"]["y"]-0.7071)<0.01, "diagonal normalised")
+    pg.evaluate("window.dispatchEvent(new Event('blur'))"); pg.wait_for_timeout(100)
+    s=st(); check(s["move"]["x"]==0 and s["move"]["y"]==0, "blur clears movement")
+    pg.keyboard.up("d"); pg.keyboard.up("w")
+    pg.evaluate("window.__log.dodgeFrames=0")
+    pg.keyboard.press("Space"); pg.wait_for_timeout(150)
+    check(pg.evaluate("window.__log.dodgeFrames")==1, "Space dodge true for exactly one frame")
+    pg.keyboard.down("j"); pg.wait_for_timeout(100); check(st()["attack"], "J holds attack")
+    pg.keyboard.up("j"); pg.wait_for_timeout(100); check(not st()["attack"], "attack released")
+    pg.keyboard.down("l"); pg.keyboard.up("l"); pg.wait_for_timeout(100)
+    check(pg.evaluate("window.__log.skillFrames")==1, "L skill one frame")
+    check(st()["aim"] is None, "aim null keyboard-only")
+    # mouse
+    pg.mouse.move(650, 100); pg.wait_for_timeout(100)
+    a=st()["aim"]; check(a and a["x"]>0 and a["y"]>0, "mouse aim up-right: %s"%a)
+    pg.mouse.down(); pg.wait_for_timeout(100); check(st()["attack"], "left mouse attack"); pg.mouse.up()
+    cdp = ctx.new_cdp_session(pg)
+    pts = {}
+    def touch(kind, **upd):
+        pts.update({k:v for k,v in upd.items() if v is not None})
+        cdp.send("Input.dispatchTouchEvent", {"type":kind, "touchPoints":[{"x":x,"y":y,"id":i} for i,(x,y) in pts.items()]})
+    def center(sel):
+        return pg.eval_on_selector(sel,"e=>{const r=e.getBoundingClientRect();return [r.x+r.width/2,r.y+r.height/2]}")
+    pg.evaluate("window.__log.dodgeFrames=0;window.__log.skillFrames=0")
+    touch("touchStart", **{}) if False else None
+    pts[1]=(100,250); cdp.send("Input.dispatchTouchEvent",{"type":"touchStart","touchPoints":[{"x":100,"y":250,"id":1}]})
+    pts[1]=(160,250); cdp.send("Input.dispatchTouchEvent",{"type":"touchMove","touchPoints":[{"x":160,"y":250,"id":1}]}); pg.wait_for_timeout(100)
+    s=st(); check(s["move"]["x"]>0.9 and abs(s["move"]["y"])<0.05, "touch stick right: %s"%s["move"])
+    check(pg.evaluate("window.__input.isTouchVisible()"), "touch controls auto-shown on first touch")
+    cdp.send("Input.dispatchTouchEvent",{"type":"touchMove","touchPoints":[{"x":100,"y":190,"id":1}]}); pg.wait_for_timeout(100)
+    check(st()["move"]["y"]>0.9, "touch stick up")
+    ax,ay=center(".dusk-tbtn.attack")
+    cdp.send("Input.dispatchTouchEvent",{"type":"touchStart","touchPoints":[{"x":100,"y":190,"id":1},{"x":ax,"y":ay,"id":2}]}); pg.wait_for_timeout(100)
+    check(st()["attack"] and st()["move"]["y"]>0.9, "multi-touch: attack held while stick held")
+    dx,dy=center(".dusk-tbtn.dodge")
+    base=[{"x":100,"y":190,"id":1},{"x":ax,"y":ay,"id":2}]
+    cdp.send("Input.dispatchTouchEvent",{"type":"touchStart","touchPoints":base+[{"x":dx,"y":dy,"id":3}]}); pg.wait_for_timeout(50)
+    cdp.send("Input.dispatchTouchEvent",{"type":"touchEnd","touchPoints":[{"x":dx,"y":dy,"id":3}]}); pg.wait_for_timeout(100)
+    check(pg.evaluate("window.__log.dodgeFrames")==1, "touch dodge one frame")
+    sx,sy=center(".dusk-tbtn.skill")
+    cdp.send("Input.dispatchTouchEvent",{"type":"touchStart","touchPoints":base+[{"x":sx,"y":sy,"id":4}]}); pg.wait_for_timeout(50)
+    cdp.send("Input.dispatchTouchEvent",{"type":"touchEnd","touchPoints":[{"x":sx,"y":sy,"id":4}]}); pg.wait_for_timeout(100)
+    check(pg.evaluate("window.__log.skillFrames")==1, "touch skill one frame")
+    check(st()["attack"] and st()["move"]["y"]>0.9, "attack+stick still held")
+    cdp.send("Input.dispatchTouchEvent",{"type":"touchEnd","touchPoints":[{"x":ax,"y":ay,"id":2}]}); pg.wait_for_timeout(100)
+    check(not st()["attack"], "attack released on finger lift")
+    cdp.send("Input.dispatchTouchEvent",{"type":"touchEnd","touchPoints":[{"x":100,"y":190,"id":1}]}); pg.wait_for_timeout(100)
+    s=st(); check(s["move"]["x"]==0 and s["move"]["y"]==0, "stick released")
+    pg.evaluate("window.__log.dodgeFrames=0")
+    pg.touchscreen.tap(dx, dy); pg.wait_for_timeout(150)
+    check(pg.evaluate("window.__log.dodgeFrames")==1, "touchscreen.tap on Dodge")
+    # audio
+    pg.click("#btns button[data-sound=hit]")
+    check(pg.evaluate("window.__audio.state")=="running", "audio unlocked and running")
+    for n in pg.eval_on_selector_all("#btns button[data-sound]","els=>els.map(e=>e.dataset.sound)"):
+        pg.click(f"#btns button[data-sound={n}]"); pg.wait_for_timeout(40)
+    pg.evaluate("window.__audio.startMusic('hub')"); pg.wait_for_timeout(800)
+    pg.evaluate("window.__audio.startMusic('combat')"); pg.wait_for_timeout(800)
+    pg.evaluate("window.__audio.startMusic('off')")
+    check(not logs, "no console errors %s"%logs)
+    b.close()
+print("FAILED" if errs else "ALL PASSED"); sys.exit(1 if errs else 0)

@@ -28,8 +28,9 @@ export function makeSectorGeometry(radius, arc, segments = 20) {
 }
 
 // Thick outline of a polyline in the XZ plane. pts = flat [x,z,x,z,...]. Squared-off quads overlap at joints.
-function strokeGeometry(pts, closed, thickness) {
-  const n = pts.length / 2, segs = closed ? n : n - 1, h = thickness / 2;
+// Closed outline ribbon around a polygon (telegraph edges).
+function strokeGeometry(pts, thickness) {
+  const n = pts.length / 2, segs = n, h = thickness / 2;
   const pos = new Float32Array(segs * 4 * 3), idx = new Uint16Array(segs * 6);
   for (let s = 0; s < segs; s++) {
     const ax = pts[s * 2], az = pts[s * 2 + 1];
@@ -208,7 +209,7 @@ export function spawnTelegraph(world, o) {
     for (let i = 0; i <= 24; i++) { const a = -t.arc / 2 + t.arc * i / 24; outlinePts.push(Math.sin(a) * t.radius, Math.cos(a) * t.radius); }
     scaleAxis = "xz";
   }
-  const outGeo = strokeGeometry(outlinePts, true, 0.08);
+  const outGeo = strokeGeometry(outlinePts, 0.08);
   const mk = (color, opacity, order) => {
     const m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     m.userData.order = order; owned.push(m); return m;
@@ -250,7 +251,7 @@ export function spawnTelegraph(world, o) {
 
   function resolve(w) {
     t.resolved = true;
-    fill.scale.set(scaleAxis === "xz" ? 1 : 1, 1, 1);
+    fill.scale.set(1, 1, 1);
     fillMat.color.setHex(0xffd0d8); lineMat.color.setHex(0xffffff);
     const p = w.player;
     let inside = false, hit = false;

@@ -2,6 +2,7 @@
 import * as THREE from "three";
 import { createRenderer } from "./engine/render.js";
 import { createInput } from "./engine/input.js";
+import { createBackdrop } from "./engine/backdrop.js";
 import { createAudio } from "./engine/audio.js";
 import { createWorld, clearRoom, dist } from "./game/world.js";
 import { createRng, dailySeed } from "./core/rng.js";
@@ -11,6 +12,7 @@ import { createFx } from "./game/fx.js";
 import { createEnemy, ENEMY_TYPES } from "./game/enemies.js";
 import { createBoss, BOSS_TYPES } from "./game/bosses.js";
 import { buildRoom, buildHub, FLOORS } from "./game/rooms.js";
+import { exitChoices, ROOM_TYPES } from "./game/route.js";
 import { ITEMS, computeStats, rollShrine, describeCard, tagCounts } from "./game/items.js";
 import * as P from "./game/progress.js";
 import { createUI } from "./ui/ui.js";
@@ -24,6 +26,9 @@ const REROLL_COST = 10, SKIP_REWARD = 6;
 
 const app = document.getElementById("app");
 const R = createRenderer(app);
+const backdrop = createBackdrop(R.scene, R.camera);
+backdrop.setQuality(R.preset);
+const setPreset = (q) => { R.setPreset(q); backdrop.setQuality(q); };
 const world = createWorld(R.scene);
 world.camera = R.camera;
 world.shake = (a) => { if (meta.settings.shake !== false) R.shake(a); };
@@ -37,16 +42,18 @@ const ui = createUI(document.getElementById("ui"));
 window.__game = { world, get state() { return state; }, get run() { return run; }, get meta() { return meta; } }; // test hook
 
 let meta = P.loadMeta();
-let run = null, room = null, state = "boot", cleared = false, exitLock = 0;
+let run = null, room = null, state = "boot", cleared = false, exitLock = 0, hinted = -1;
 let runEmbers = 0, killerName = null, summons = [];
 const isTouch = matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
 
 // ---------------- settings ----------------
+const QS_Q = ((q) => (q === "low" || q === "medium" || q === "high" ? q : null))(new URLSearchParams(location.search).get("q"));
 function applySettings() {
   const s = meta.settings;
   audio.setVolume("music", s.music ?? 0.6); audio.setVolume("sfx", s.sfx ?? 0.8);
   R.setBlurAllowed(s.blur !== false);
-  if (s.quality && s.quality !== "auto") R.setPreset(s.quality);
+  if (s.quality && s.quality !== "auto") setPreset(s.quality);
+  if (QS_Q) setPreset(QS_Q); // ?q=low|medium|high overrides (slow devices, headless tests)
 }
 applySettings();
 
@@ -61,7 +68,8 @@ function hudUpdate() {
     hp: Math.max(0, Math.round(p.hp)), maxHp: Math.round(world.stats.maxHp), shield: Math.round(p.shield || 0),
     tags: tagCounts(run ? run.items : []), currency: meta.currency, floor: run ? run.floor : 0,
     room: run ? Math.min(run.room, ROOMS_PER_FLOOR) : 0, rooms: ROOMS_PER_FLOOR + 1,
-    saved: savedFlash > 0, boss: boss ? { name: boss.name, hp: Math.max(0, boss.hp), maxHp: boss.maxHp } : null,
+    path: run ? (run.path || []).concat(run.room >= ROOMS_PER_FLOOR ? [] : [run.roomType || "combat"]) : null,
+    exitCount: room && room.exits ? room.exits.length : 1, saved: savedFlash > 0, boss: boss ? { name: boss.name, hp: Math.max(0, boss.hp), maxHp: boss.maxHp } : null,
     skillCd: p.skillCd || 0, skillMax: p.skillMax || 7, dodgeCd: p.dodgeCd || 0, dodgeMax: p.dodgeMax || world.stats.dodgeCooldown,
     foes: state === "run" || state === "dying" ? world.enemies.filter(e => !e.dead).length : null, touch: input.isTouchVisible ? input.isTouchVisible() : false,
   });
@@ -89,7 +97,7 @@ function enterHub() {
   room = buildHub(world);
   R.addLampsFrom(room.group);
   spawnPlayer(room.playerStart);
-  R.lookAt(0, 0);
+  R.setRoomFrame(world.bounds); backdrop.setTheme("hub");
   ui.hideAll(); ui.hud.show(false);
   audio.startMusic("hub");
   showHubPanel();
@@ -127,9 +135,14 @@ function enterRoom() {
   ui.hideAll(); ui.hud.show(true);
   setStats();
   const boss = run.room >= ROOMS_PER_FLOOR;
+  const type = boss ? "boss" : (run.roomType || "combat");
+  const exits = exitChoices(run.seed, run.floor, run.room, ROOMS_PER_FLOOR, type);
   world.rng = createRng(`${run.seed}:${run.floor}:${run.room}`);
-  room = buildRoom(world, { floor: run.floor, index: run.room, boss, seed: `${run.seed}:${run.floor}:${run.room}` });
+  room = buildRoom(world, { floor: run.floor, index: run.room, boss, seed: `${run.seed}:${run.floor}:${run.room}:${type}`, exits, roomType: boss ? undefined : type });
+  if (!room.exits) room.exits = [room.exit];
   R.addLampsFrom(room.group);
+  R.setRoomFrame(room.cameraBounds || world.bounds);
+  backdrop.setTheme(run.floor);
   spawnPlayer(room.playerStart);
   const p = world.player;
   p.maxHp = world.stats.maxHp;
@@ -141,12 +154,19 @@ function enterRoom() {
     audio.play("boss"); ui.toast(`${BOSS_NAMES[id]}`);
   } else {
     for (const s of room.spawns) createEnemy(world, s.type, s.x, s.z);
+    if (type === "rest") {
+      const heal = Math.round(p.maxHp * 0.35);
+      p.hp = Math.min(p.maxHp, p.hp + heal);
+      world.events.emit("player:heal", { amount: heal });
+      if (world.fx) world.fx.burst(p.x, 0.6, p.z, 0x6fe0c0, 18, 1.2);
+      ui.toast(`Rest: the campfire restores ${heal} health`);
+    } else if (type === "elite") ui.toast("Elite room: tougher foes, better reward");
+    else if (type === "treasure") ui.toast("Treasure room: clear the guards to open the chest");
   }
   for (let i = 0; i < (world.stats.summons || 0); i++) summons.push(makeSummon(i));
-  cleared = false; exitLock = 0.6;
+  cleared = false; exitLock = 0.6; hinted = -1;
   state = "run";
-  R.lookAt(0, 0);
-  audio.startMusic("combat");
+  audio.startMusic(type === "rest" ? "hub" : "combat");
   save();
 }
 
@@ -180,30 +200,44 @@ function updateSummons(dt) {
 function onRoomClear() {
   cleared = true;
   world.events.emit("room:clear", {});
-  room.exit.setOpen(true);
+  for (const e of room.exits) e.setOpen(true);
   audio.play("door");
-  ui.toast(run.room >= ROOMS_PER_FLOOR ? "Boss defeated: the way down is open" : "Room clear: the portal is open");
+  const type = run.room >= ROOMS_PER_FLOOR ? "boss" : run.roomType;
+  if (type === "elite") world.events.emit("currency", { amount: 20 });
+  if (type === "treasure") {
+    world.events.emit("currency", { amount: 30 });
+    if (room.chest && room.chest.open) room.chest.open();
+    if (world.fx && room.chest) world.fx.burst(room.chest.x, 0.8, room.chest.z, 0xf0b860, 24, 1.6);
+  }
+  if (type === "boss") ui.toast("Boss defeated: the way down is open");
+  else if (type === "rest") ui.toast(room.exits.length > 1 ? "Choose your path: walk into a portal" : "The portal is open");
+  else ui.toast(type === "treasure" ? "Chest opened: +30 embers" : type === "elite" ? "Elite cleared: +20 embers" : room.exits.length > 1 ? "Room clear: choose a portal" : "Room clear: the portal is open");
 }
 
-function onExit() {
+function onExit(i) {
   run.hp = world.player.hp;
   const wasBoss = run.room >= ROOMS_PER_FLOOR;
   if (wasBoss) {
     if (run.floor >= FLOORS_PER_RUN) return endRun(true);
-    run.floor += 1; run.room = 0;
+    run.floor += 1; run.room = 0; run.roomType = "combat"; run.path = [];
     run.hp = Math.min(world.stats.maxHp, run.hp + world.stats.maxHp * 0.3); // breather between floors
     return enterRoom();
   }
-  openShrine();
+  const chosen = room.exits[i] ? room.exits[i].type : "combat";
+  run.path = (run.path || []).concat(run.roomType || "combat");
+  const fromType = run.roomType;
+  run.roomType = ROOM_TYPES[chosen] && chosen !== "boss" ? chosen : "combat";
+  if (fromType === "rest") return nextRoom();
+  openShrine(false, fromType === "elite");
 }
 
-function openShrine(rerolled = false) {
+function openShrine(rerolled = false, freeReroll = false) {
   state = "shrine";
   const ids = rollShrine(world.rng, run.items, 3);
   const cards = ids.map(id => describeCard(id, run.items));
   ids.forEach(id => { if (!meta.codex.includes(id)) meta.codex.push(id); });
   ui.showShrine(cards, {
-    rerollCost: REROLL_COST, canReroll: meta.currency >= REROLL_COST && !rerolled,
+    rerollCost: freeReroll ? 0 : REROLL_COST, canReroll: !rerolled && (freeReroll || meta.currency >= REROLL_COST),
     onTake: (id) => {
       run.items.push(id);
       const it = ITEMS.find(i => i.id === id);
@@ -211,7 +245,7 @@ function openShrine(rerolled = false) {
       audio.play("pickup"); ui.toast(`${it.name} taken`);
       nextRoom();
     },
-    onReroll: () => { if (meta.currency >= REROLL_COST && !rerolled) { meta.currency -= REROLL_COST; audio.play("coin"); openShrine(true); } },
+    onReroll: () => { if (rerolled) return; if (freeReroll) { audio.play("coin"); return openShrine(true); } if (meta.currency >= REROLL_COST) { meta.currency -= REROLL_COST; audio.play("coin"); openShrine(true); } },
     onSkip: () => { meta.currency += SKIP_REWARD; runEmbers += SKIP_REWARD; audio.play("coin"); nextRoom(); },
   });
 }
@@ -271,18 +305,18 @@ const autoQ = {
   t: 0, frames: 0, done: false,
   reset() { this.t = 0; this.frames = 0; this.done = false; },
   tick(dt) {
-    if (this.done || (meta.settings.quality && meta.settings.quality !== "auto")) return;
+    if (this.done || QS_Q || (meta.settings.quality && meta.settings.quality !== "auto")) return;
     this.t += dt; this.frames++;
     if (this.t >= 3) {
       const fps = this.frames / this.t;
-      if (fps < 28 && R.preset !== "low") R.setPreset(R.preset === "high" ? "medium" : "low");
-      else if (fps < 45 && R.preset === "high") R.setPreset("medium");
+      if (fps < 28 && R.preset !== "low") setPreset(R.preset === "high" ? "medium" : "low");
+      else if (fps < 45 && R.preset === "high") setPreset("medium");
       this.t = 0; this.frames = 0;
       if (fps >= 45 || R.preset === "low") this.done = true;
     }
   },
 };
-if (isTouch && (!meta.settings.quality || meta.settings.quality === "auto")) R.setPreset("medium");
+if (isTouch && (!meta.settings.quality || meta.settings.quality === "auto")) setPreset("medium");
 
 // ---------------- main loop ----------------
 const timer = new THREE.Timer(); timer.connect(document);
@@ -299,11 +333,38 @@ function botDrive(st) {
   if (foe) { tx = foe.x; tz = foe.z; } else if (cleared && room) { tx = room.exit.x; tz = room.exit.z; want = 0; }
   const dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz) || 1;
   const toScreen = (x, z) => { const sx = x - z, sy = -(x + z), n = Math.hypot(sx, sy) || 1; return { x: sx / n, y: sy / n }; };
-  st.move = d > want ? toScreen(dx, dz) : { x: 0, y: 0 };
-  // sidestep out of any telegraph the player stands in
+  // walk the grid around pits, stubs and props: steer at the next cell of a breadth-first path
+  const way = botWaypoint(p.x, p.z, tx, tz);
+  st.move = d > want ? toScreen(way.x - p.x, way.z - p.z) : { x: 0, y: 0 };
   const inDanger = world.telegraphs.some(t => t.hostile !== false && Math.hypot(t.x - p.x, t.z - p.z) < (t.radius || t.length || 1.5));
   if (inDanger && botT % 40 === 0) st.dodge = true;
   if (foe) { st.aim = toScreen(dx, dz); st.attack = d < 2.2; st.skill = d < 1.6 && botT % 90 === 0; }
+}
+function botWaypoint(px, pz, tx, tz) {
+  const g = world.grid; if (!g) return { x: tx, z: tz };
+  const W = g.w, H = g.h, cell = (x, z) => [Math.floor(x - g.x0), Math.floor(z - g.z0)];
+  const blocked = new Uint8Array(W * H);
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+    if (!g.walk[j * W + i]) { blocked[j * W + i] = 1; continue; }
+    const cx = g.x0 + i + 0.5, cz = g.z0 + j + 0.5;
+    for (const o of world.obstacles) if (Math.hypot(cx - o.x, cz - o.z) < o.r + 0.35) { blocked[j * W + i] = 1; break; }
+  }
+  const [si, sj] = cell(px, pz), [ti, tj] = cell(tx, tz);
+  if (si < 0 || sj < 0 || si >= W || sj >= H || ti < 0 || tj < 0 || ti >= W || tj >= H) return { x: tx, z: tz };
+  const prev = new Int32Array(W * H).fill(-2), q = [tj * W + ti];
+  prev[tj * W + ti] = -1; blocked[sj * W + si] = 0; blocked[tj * W + ti] = 0;
+  while (q.length) { // search from the target so prev[] at the start points one step toward it
+    const c = q.shift(), ci = c % W, cj = (c / W) | 0;
+    if (c === sj * W + si) break;
+    for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const ni = ci + a, nj = cj + b, n = nj * W + ni;
+      if (ni < 0 || nj < 0 || ni >= W || nj >= H || blocked[n] || prev[n] !== -2) continue;
+      prev[n] = c; q.push(n);
+    }
+  }
+  const nx = prev[sj * W + si];
+  if (nx < 0) return { x: tx, z: tz };
+  return { x: g.x0 + (nx % W) + 0.5, z: g.z0 + ((nx / W) | 0) + 0.5 };
 }
 
 let acc = 0;
@@ -335,7 +396,13 @@ function frame() {
     if (state === "run") {
       if (!cleared && world.enemies.length === 0) onRoomClear();
       exitLock -= sdt;
-      if (cleared && exitLock <= 0 && p && Math.hypot(p.x - room.exit.x, p.z - room.exit.z) < 0.9) onExit();
+      if (cleared && p) {
+        for (let i = 0; i < room.exits.length; i++) {
+          const ex = room.exits[i], d = Math.hypot(p.x - ex.x, p.z - ex.z);
+          if (exitLock <= 0 && d < 0.9) { onExit(i); break; }
+          if (d < 2.4 && hinted !== i && room.exits.length > 1) { hinted = i; const T = ROOM_TYPES[ex.type]; if (T) ui.toast(`${T.label}: ${T.hint}`); }
+        }
+      }
     }
     autoQ.tick(dt);
   } else if (state === "hub") {
@@ -345,6 +412,7 @@ function frame() {
   }
   savedFlash -= dt;
   hudUpdate();
+  backdrop.update(dt, world.time, R.target.x, R.target.z);
   R.render(dt, world.player);
 }
 

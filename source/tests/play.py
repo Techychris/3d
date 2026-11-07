@@ -14,10 +14,10 @@ try:
   with sync_playwright() as pw:
     b = pw.chromium.launch(executable_path="/usr/bin/google-chrome", args=ARGS)
     # ---------- desktop run ----------
-    pg = b.new_page(viewport={"width": 1280, "height": 800})
+    pg = b.new_page(viewport={"width": 960, "height": 600} if GOD else {"width": 1280, "height": 800})
     pg.on("console", lambda m: report["errors" if m.type == "error" else "warnings"].append(m.text) if m.type in ("error", "warning") else None)
     pg.on("pageerror", lambda e: report["errors"].append("PAGEERROR " + str(e)))
-    pg.goto("http://localhost:8765/?bot" + ("&god" if GOD else ""))
+    pg.goto("http://localhost:8765/?bot" + ("&god&q=low" if GOD else ""))
     pg.wait_for_function("window.__game && window.__game.state === 'hub'", timeout=60000)
     time.sleep(1.5); pg.screenshot(path=f"{OUT}/desk-hub.png"); log("hub ok")
     pg.get_by_role("button", name="Start run").click()

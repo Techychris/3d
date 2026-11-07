@@ -11,6 +11,7 @@ export function createWorld(scene) {
     rng: createRng(1),
     events: createEvents(),
     bounds: { minX: -5, maxX: 5, minZ: -4, maxZ: 4 },
+    grid: null,             // optional walkable tile grid { x0, z0, w, h, walk } (set by rooms.js)
     obstacles: [],          // [{x, z, r}] solid circles (pillars, statues, props)
     player: null,
     enemies: [],
@@ -49,16 +50,51 @@ export function screenToWorld(sx, sy) {
 export const yawOf = (dx, dz) => Math.atan2(dx, dz); // 0 = facing +z; set group.rotation.y = yaw
 
 // --- Collision ---------------------------------------------------------------
-// Keep a circle of radius r inside the room bounds and outside every obstacle. Mutates pos {x, z}.
+// world.grid (optional) = { x0, z0, w, h, walk: Uint8Array }: cell (i, j) spans x0+i..x0+i+1, z0+j..z0+j+1; walk[j*w+i] = 1 if walkable.
+// Is the point on a walkable cell? (Without a grid: inside world.bounds.)
+export function isWalkable(world, x, z) {
+  const g = world.grid;
+  if (!g) { const b = world.bounds; return x >= b.minX && x <= b.maxX && z >= b.minZ && z <= b.maxZ; }
+  const i = Math.floor(x - g.x0), j = Math.floor(z - g.z0);
+  if (i < 0 || j < 0 || i >= g.w || j >= g.h) return false;
+  return g.walk[j * g.w + i] === 1;
+}
+// Is grid cell (i, j) walkable? Outside the grid counts as blocked.
+export function cellWalkable(world, i, j) {
+  const g = world.grid;
+  if (!g || i < 0 || j < 0 || i >= g.w || j >= g.h) return false;
+  return g.walk[j * g.w + i] === 1;
+}
+// Keep a circle of radius r inside the room bounds, off blocked grid cells (void, pits, wall stubs) and outside every obstacle. Mutates pos {x, z}.
 export function resolveCollision(world, pos, r) {
-  const b = world.bounds;
+  const b = world.bounds, g = world.grid;
   for (const o of world.obstacles) {
     const dx = pos.x - o.x, dz = pos.z - o.z, d = Math.hypot(dx, dz), min = o.r + r;
     if (d < min && d > 1e-6) { pos.x = o.x + dx / d * min; pos.z = o.z + dz / d * min; }
     else if (d <= 1e-6) { pos.x += min; }
   }
-  pos.x = Math.min(b.maxX - r, Math.max(b.minX + r, pos.x));
-  pos.z = Math.min(b.maxZ - r, Math.max(b.minZ + r, pos.z));
+  for (let pass = 0; pass < 3; pass++) {
+    if (g) {
+      const i0 = Math.floor(pos.x - r - g.x0), i1 = Math.floor(pos.x + r - g.x0);
+      const j0 = Math.floor(pos.z - r - g.z0), j1 = Math.floor(pos.z + r - g.z0);
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+        if (i < 0 || j < 0 || i >= g.w || j >= g.h) continue; // outside the grid: handled by the bounds clamp
+        if (g.walk[j * g.w + i] === 1) continue;
+        const minX = g.x0 + i, maxX = minX + 1, minZ = g.z0 + j, maxZ = minZ + 1;
+        const cx = Math.min(maxX, Math.max(minX, pos.x)), cz = Math.min(maxZ, Math.max(minZ, pos.z));
+        const dx = pos.x - cx, dz = pos.z - cz, d2 = dx * dx + dz * dz;
+        if (d2 >= r * r) continue;
+        if (d2 > 1e-10) { const d = Math.sqrt(d2); pos.x = cx + dx / d * r; pos.z = cz + dz / d * r; }
+        else {
+          // centre inside the block: leave through the nearest face
+          const l = pos.x - minX, rr = maxX - pos.x, u = pos.z - minZ, dn = maxZ - pos.z, m = Math.min(l, rr, u, dn);
+          if (m === l) pos.x = minX - r; else if (m === rr) pos.x = maxX + r; else if (m === u) pos.z = minZ - r; else pos.z = maxZ + r;
+        }
+      }
+    }
+    pos.x = Math.min(b.maxX - r, Math.max(b.minX + r, pos.x));
+    pos.z = Math.min(b.maxZ - r, Math.max(b.minZ + r, pos.z));
+  }
   return pos;
 }
 

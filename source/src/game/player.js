@@ -134,7 +134,7 @@ export function createPlayer(world, heroId = "hero-warrior") {
     // dodge
     if (input.dodge && !busy && player.dodgeCd <= 0) {
       let dx = moving ? wmx : Math.sin(player.yaw), dz = moving ? wmz : Math.cos(player.yaw);
-      const l = Math.hypot(dx, dz) || 1; dodgeX = dx / l; dodgeZ = dz / l;
+      const l = Math.hypot(dx, dz); dodgeX = dx / l; dodgeZ = dz / l; // l never 0: stick past dead zone, or sin/cos of yaw
       dodgeT = DODGE_TIME; player.dodging = true;
       player.invuln = Math.max(player.invuln, DODGE_TIME);
       player.dodgeCd = st.dodgeCooldown || 0.8;
@@ -157,7 +157,7 @@ export function createPlayer(world, heroId = "hero-warrior") {
     } else {
       // movement (slower while the swing is mid-air)
       if (moving) {
-        const len = Math.min(1, Math.hypot(mx, my)), l = Math.hypot(wmx, wmz) || 1;
+        const len = Math.min(1, Math.hypot(mx, my)), l = Math.hypot(wmx, wmz); // never 0: only used past the stick dead zone
         const sp = (st.moveSpeed || 4.2) * slow * (swingT >= 0 ? 0.8 : 1) * len / l;
         player.x += wmx * sp * dt; player.z += wmz * sp * dt;
         resolveCollision(w, player, player.radius);
@@ -234,10 +234,12 @@ export function createPlayer(world, heroId = "hero-warrior") {
     const ww = w || world;
     ww.remove(group); ww.remove(fxRoot);
     slashGeo.dispose(); slashMat.dispose(); bashGeo.dispose(); bashMat.dispose();
+    const done = new Set(); // meshes can share a geometry or material: free each once
+    const free = (r) => { if (!done.has(r)) { done.add(r); r.dispose(); } };
     asset.group.traverse((o) => {
       if (!o.isMesh) return;
-      o.geometry.dispose();
-      (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose());
+      free(o.geometry);
+      (Array.isArray(o.material) ? o.material : [o.material]).forEach(free);
     });
   }
 

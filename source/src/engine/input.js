@@ -72,6 +72,7 @@ export function createInput(rootEl) {
 
   function clearAll() {
     keys.clear();
+    dodgeLatch = skillLatch = false; // a press just before blur/hide must not fire on return
     mouseDown[0] = mouseDown[2] = false;
     releaseTouches();
   }
