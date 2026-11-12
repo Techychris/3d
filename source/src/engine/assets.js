@@ -1,4 +1,4 @@
-// Asset factory: builds any of the 60 asset modules, restyled to the dusk palette.
+// Asset factory: builds any of the 74 asset modules, restyled to the dusk palette.
 // makeAsset(id) -> { group, update(t), meta }. Call update(t) every frame with world.time.
 import * as THREE from "three";
 
@@ -34,16 +34,30 @@ import * as A_pickup_item_pedestal from "../assets/pickup-item-pedestal.js";
 import * as A_pickup_key from "../assets/pickup-key.js";
 import * as A_pickup_scroll from "../assets/pickup-scroll.js";
 import * as A_prop_altar from "../assets/prop-altar.js";
+import * as A_prop_anvil from "../assets/prop-anvil.js";
+import * as A_prop_banner from "../assets/prop-banner.js";
 import * as A_prop_barrels from "../assets/prop-barrels.js";
+import * as A_prop_bone_pile from "../assets/prop-bone-pile.js";
 import * as A_prop_bookshelf from "../assets/prop-bookshelf.js";
 import * as A_prop_brazier from "../assets/prop-brazier.js";
 import * as A_prop_campfire from "../assets/prop-campfire.js";
 import * as A_prop_cauldron from "../assets/prop-cauldron.js";
 import * as A_prop_chest from "../assets/prop-chest.js";
+import * as A_prop_crates from "../assets/prop-crates.js";
+import * as A_prop_crystal_cluster from "../assets/prop-crystal-cluster.js";
+import * as A_prop_dusk_tree from "../assets/prop-dusk-tree.js";
 import * as A_prop_gravestones from "../assets/prop-gravestones.js";
+import * as A_prop_lantern_post from "../assets/prop-lantern-post.js";
+import * as A_prop_mushroom_patch from "../assets/prop-mushroom-patch.js";
+import * as A_prop_rune_stone from "../assets/prop-rune-stone.js";
+import * as A_prop_sarcophagus from "../assets/prop-sarcophagus.js";
 import * as A_prop_shop_stall from "../assets/prop-shop-stall.js";
+import * as A_prop_signpost from "../assets/prop-signpost.js";
 import * as A_prop_statue from "../assets/prop-statue.js";
+import * as A_prop_telescope from "../assets/prop-telescope.js";
+import * as A_prop_urns from "../assets/prop-urns.js";
 import * as A_prop_weapon_rack from "../assets/prop-weapon-rack.js";
+import * as A_prop_well from "../assets/prop-well.js";
 import * as A_tile_bridge from "../assets/tile-bridge.js";
 import * as A_tile_doorway_exit from "../assets/tile-doorway-exit.js";
 import * as A_tile_floor_cracked from "../assets/tile-floor-cracked.js";
@@ -63,7 +77,7 @@ import * as A_vfx_telegraph_circle from "../assets/vfx-telegraph-circle.js";
 import * as A_vfx_telegraph_cone from "../assets/vfx-telegraph-cone.js";
 import * as A_vfx_telegraph_line from "../assets/vfx-telegraph-line.js";
 
-const LIST = [A_boss_dragon_whelp, A_boss_golem, A_boss_necromancer, A_boss_slime_king, A_enemy_bat, A_enemy_brute, A_enemy_cultist, A_enemy_ghost, A_enemy_goblin_archer, A_enemy_imp, A_enemy_mimic, A_enemy_mushroom, A_enemy_rat_swarm, A_enemy_scorpion, A_enemy_skeleton, A_enemy_skeleton_knight, A_enemy_slime, A_enemy_spider, A_enemy_totem, A_enemy_wisp, A_hero_mage, A_hero_paladin, A_hero_ranger, A_hero_rogue, A_hero_warrior, A_pickup_coins, A_pickup_health_potion, A_pickup_heart_container, A_pickup_item_pedestal, A_pickup_key, A_pickup_scroll, A_prop_altar, A_prop_barrels, A_prop_bookshelf, A_prop_brazier, A_prop_campfire, A_prop_cauldron, A_prop_chest, A_prop_gravestones, A_prop_shop_stall, A_prop_statue, A_prop_weapon_rack, A_tile_bridge, A_tile_doorway_exit, A_tile_floor_cracked, A_tile_floor_grate, A_tile_floor_moss, A_tile_floor_stone, A_tile_pillar, A_tile_spike_trap, A_tile_stairs_down, A_tile_wall, A_tile_wall_corner, A_tile_wall_torch, A_tile_water, A_vfx_fireball, A_vfx_portal, A_vfx_telegraph_circle, A_vfx_telegraph_cone, A_vfx_telegraph_line];
+const LIST = [A_boss_dragon_whelp, A_boss_golem, A_boss_necromancer, A_boss_slime_king, A_enemy_bat, A_enemy_brute, A_enemy_cultist, A_enemy_ghost, A_enemy_goblin_archer, A_enemy_imp, A_enemy_mimic, A_enemy_mushroom, A_enemy_rat_swarm, A_enemy_scorpion, A_enemy_skeleton, A_enemy_skeleton_knight, A_enemy_slime, A_enemy_spider, A_enemy_totem, A_enemy_wisp, A_hero_mage, A_hero_paladin, A_hero_ranger, A_hero_rogue, A_hero_warrior, A_pickup_coins, A_pickup_health_potion, A_pickup_heart_container, A_pickup_item_pedestal, A_pickup_key, A_pickup_scroll, A_prop_altar, A_prop_anvil, A_prop_banner, A_prop_barrels, A_prop_bone_pile, A_prop_bookshelf, A_prop_brazier, A_prop_campfire, A_prop_cauldron, A_prop_chest, A_prop_crates, A_prop_crystal_cluster, A_prop_dusk_tree, A_prop_gravestones, A_prop_lantern_post, A_prop_mushroom_patch, A_prop_rune_stone, A_prop_sarcophagus, A_prop_shop_stall, A_prop_signpost, A_prop_statue, A_prop_telescope, A_prop_urns, A_prop_weapon_rack, A_prop_well, A_tile_bridge, A_tile_doorway_exit, A_tile_floor_cracked, A_tile_floor_grate, A_tile_floor_moss, A_tile_floor_stone, A_tile_pillar, A_tile_spike_trap, A_tile_stairs_down, A_tile_wall, A_tile_wall_corner, A_tile_wall_torch, A_tile_water, A_vfx_fireball, A_vfx_portal, A_vfx_telegraph_circle, A_vfx_telegraph_cone, A_vfx_telegraph_line];
 export const ASSETS = Object.fromEntries(LIST.map(m => [m.meta.id, m]));
 
 // Dusk remap: authored palette slot -> dusk colour (see the design spec, Art direction).

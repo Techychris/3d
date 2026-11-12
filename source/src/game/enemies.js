@@ -493,6 +493,36 @@ function createSporeCloud(w, x, z, r, name) {
   return h;
 }
 
+// Imp: hovers at mid range and throws two fireballs, one straight and one wide to a random side. Scorpion: circles close, then stings along a
+// short line. Totem: never moves; pulses a wide circle around itself when the player comes near.
+const IMP_SPREAD = 0.3;
+DEFS.imp = {
+  windup: 0.55, hold: 0.1, recover: 0.8, cd: 1.7, first: 0.9,
+  canAttack: (e, d) => d < 7 && d > 1.2,
+  move(e, w, dt, d, ux, uz) { keepDistance(e, w, dt, d, ux, uz, 2.6, 5.0, 1.15); },
+  start(e, w) {
+    e.side = w.rng() < 0.5 ? -1 : 1;
+    for (const k of [0, 1]) aimLine(e, w, e.aim + k * e.side * IMP_SPREAD, e.wu, 8, 0.4);
+  },
+  windupTick(e, w, dt, k) { e.sy = 1 + 0.12 * k; e.pitch = -0.15 * k; },
+  attack(e, w) { for (const k of [0, 1]) shoot(e, w, e.aim + k * e.side * IMP_SPREAD, { speed: 6.5, kind: "fireball", radius: 0.24, range: 9 }); },
+};
+DEFS.scorpion = {
+  windup: 0.45, hold: 0.12, recover: 0.9, cd: 0.9,
+  canAttack: (e, d) => d < 2.3,
+  move(e, w, dt, d, ux, uz) { keepDistance(e, w, dt, d, ux, uz, 1.2, 2.0); },
+  start(e, w) { tele(e, w, { shape: "line", x: e.x, z: e.z, angle: e.aim, length: 2.8, width: 0.7, windup: e.wu }); },
+  windupTick(e, w, dt, k) { e.pitch = 0.25 * k; e.sx = 1 + 0.05 * Math.sin(e.t * 50); },
+  attackTick(e) { e.pitch = -0.3; },
+};
+DEFS.totem = {
+  windup: 0.9, hold: 0.15, recover: 1.3, cd: 1.6, first: 0.8,
+  canAttack: (e, d) => d < 3.4,
+  start(e, w) { tele(e, w, { shape: "circle", x: e.x, z: e.z, radius: 2.4, windup: e.wu }); },
+  windupTick(e, w, dt, k) { e.sy = 1 + 0.1 * k; e.sx = 1 - 0.05 * k; },
+  attack(e, w) { say(w, "slam"); },
+};
+
 // ---------------------------------------------------------------- public tables
 export const ENEMY_TYPES = {
   skeleton: { name: "Skeleton grunt", asset: "enemy-skeleton", hp: 30, speed: 2.0, radius: 0.3, damage: 10, floors: [1, 2],
@@ -519,6 +549,12 @@ export const ENEMY_TYPES = {
     tip: "Its circle appears under you and fires after a beat. Keep moving, then rush it." },
   mushroom: { name: "Spore mushroom", asset: "enemy-mushroom", hp: 28, speed: 0.9, radius: 0.35, damage: 5, floors: [3],
     tip: "Spores linger for 2 seconds after the burst. Leave the cloud, then attack the mushroom." },
+  scorpion: { name: "Ruin scorpion", asset: "enemy-scorpion", hp: 26, speed: 2.6, radius: 0.4, damage: 9, floors: [1, 2],
+    tip: "It circles you, then stings along a short red line. Sidestep the line and hit it while the tail is stuck." },
+  imp: { name: "Fire imp", asset: "enemy-imp", hp: 16, speed: 2.4, radius: 0.3, damage: 7, floors: [2, 3],
+    tip: "Imps throw two fireballs: one straight at you, one wide to a side. Step to the side with no red line." },
+  totem: { name: "Hex totem", asset: "enemy-totem", hp: 45, speed: 0, radius: 0.35, damage: 13, floors: [3],
+    tip: "The totem never moves. Step out of its circle when it swells, then strike before the next pulse." },
   // Spawned by slimes dying; not placed in waves.
   slimeling: { name: "Small slime", asset: "enemy-slime", hp: 8, speed: 1.8, radius: 0.22, damage: 5, floors: [], scale: 0.6, drop: 1,
     tip: "Small slimes hop at you in a tight circle. Move after the crouch." },

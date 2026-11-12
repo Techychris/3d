@@ -797,3 +797,63 @@ test("two actors on exactly the same spot produce finite positions (no divide by
   frame(w);
   assert.ok(Number.isFinite(a.x) && Number.isFinite(a.z) && Number.isFinite(b.x) && Number.isFinite(b.z));
 });
+
+// ---------------------------------------------------------------- imp, scorpion, totem
+for (const [roll, side] of [[0.2, -1], [0.8, 1]]) {
+  test(`imp: throws one fireball straight and one ${side < 0 ? "to its right" : "to its left"}, each along a harmless aim line`, () => {
+    const w = makeWorld({ withPlayer: true });
+    const imp = createEnemy(w, "imp", -4, 0, { aggro: true });
+    w.rng = () => roll;
+    assert.ok(until(w, () => imp.state === "windup", 8));
+    assert.equal(imp.side, side);
+    assert.equal(imp.tels.length, 2);
+    for (const t of imp.tels) { assert.equal(t.shape, "line"); assert.equal(t.damage, 0); }
+    const aim = imp.aim;
+    assert.ok(until(w, () => w.projectiles.length === 2, 3));
+    const [straight, wide] = w.projectiles;
+    for (const p of [straight, wide]) { assert.equal(p.kind, "fireball"); assert.equal(p.hostile, true); assert.equal(p.damage, 7); }
+    assert.ok(Math.abs(angDiff(Math.atan2(straight.dirX, straight.dirZ), aim)) < 1e-9, "first shot flies along the aim");
+    assert.ok(Math.abs(angDiff(Math.atan2(wide.dirX, wide.dirZ), aim) - side * 0.3) < 1e-9, "second shot is 0.3 rad to the rolled side");
+    frame(w, 120);
+    assert.equal(w.player.hp, 93, "only the straight fireball hits a player who stands still");
+  });
+}
+
+test("scorpion: closes to sting range, then stings along a short line from its body", () => {
+  const w = makeWorld({ withPlayer: true });
+  const s = createEnemy(w, "scorpion", -4, 0, { aggro: true });
+  assert.ok(until(w, () => s.state === "windup", 8));
+  assert.ok(dist(s, w.player) < 2.3, "stings only from close range");
+  const [t] = s.tels;
+  assert.equal(t.shape, "line");
+  assert.equal(t.length, 2.8);
+  assert.equal(t.width, 0.7);
+  assert.deepEqual([t.x, t.z], [s.x, s.z]);
+  assert.ok(until(w, () => s.state === "attack", 2));
+  frame(w);
+  assert.equal(s.pitch, -0.3, "tail snaps forward on the hit");
+  assert.equal(w.player.hp, 91);
+});
+
+test("totem: stays put, ignores a distant player, and pulses a circle around itself when the player is near", () => {
+  const w = makeWorld({ withPlayer: true });
+  const far = createEnemy(w, "totem", -4.5, 0, { aggro: true });
+  frame(w, 240);
+  assert.deepEqual([far.x, far.z], [-4.5, 0], "never walks");
+  assert.equal(far.state, "aggro", "a player 4.5 tiles away is out of reach");
+  assert.equal(w.telegraphs.length, 0);
+  far.dead = true;
+
+  const near = createEnemy(w, "totem", -2, 0, { aggro: true });
+  assert.ok(until(w, () => near.state === "windup", 8));
+  const [t] = near.tels;
+  assert.equal(t.shape, "circle");
+  assert.equal(t.radius, 2.4);
+  assert.deepEqual([t.x, t.z], [-2, 0]);
+  const slams = () => w.audio.play.calls.filter((c) => c[0] === "slam").length;
+  const before = slams();
+  assert.ok(until(w, () => near.state === "attack", 2));
+  assert.equal(slams(), before + 1, "the pulse plays the slam sound");
+  assert.equal(w.player.hp, 87);
+  assert.deepEqual([near.x, near.z], [-2, 0]);
+});

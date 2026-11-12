@@ -542,8 +542,8 @@ describe("buildHub", () => {
     assert.equal(hub.exit.type, null);
     assert.equal(world.grid, null);
     assert.ok(world.root.children.includes(hub.group));
-    // Five props, and no closed-exit blocker because the hub exit starts open.
-    assert.equal(world.obstacles.length, 5);
+    // Thirteen props, and no closed-exit blocker because the hub exit starts open.
+    assert.equal(world.obstacles.length, 13);
     assert.ok(world.obstacles.every((o) => o.r > 0));
     assert.ok(inBounds(hub.cameraBounds, hub.playerStart));
     hub.update(world, 1 / 60);
@@ -556,9 +556,9 @@ describe("buildHub", () => {
 describe("waveFor", () => {
   const types = (list) => new Set(list.map((s) => s.type));
   const FLOOR_TYPES = {
-    1: ["skeleton", "slime", "rats", "archer", "bat"],
-    2: ["skeleton", "slime", "rats", "archer", "bat", "ghost", "spider", "knight", "brute"],
-    3: ["skeleton", "archer", "bat", "ghost", "spider", "knight", "brute", "wisp", "cultist", "mushroom"],
+    1: ["skeleton", "slime", "rats", "archer", "bat", "scorpion"],
+    2: ["skeleton", "slime", "rats", "archer", "bat", "ghost", "spider", "knight", "brute", "scorpion", "imp"],
+    3: ["skeleton", "archer", "bat", "ghost", "spider", "knight", "brute", "wisp", "cultist", "mushroom", "imp", "totem"],
   };
 
   it("spawns the base count for each floor when there is no layout", () => {

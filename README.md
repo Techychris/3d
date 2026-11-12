@@ -8,6 +8,13 @@ Browser game built with three.js r187. Fight through 3 floors of floating-island
 - Desktop: WASD to move, mouse to aim, J or left click to attack, Space or K to dodge, L to bash, Esc to pause.
 - Phone: play in landscape, with an on-screen stick and buttons.
 
+## What's in v1.2
+- 14 new props (74 assets in total): dusk tree, lantern post, crates, glowcap mushrooms, sarcophagus, burial urns, bone pile, crystal cluster, rune stone, telescope, well, banner, signpost, anvil. See `screenshots/new-props-v1.2.png`.
+- Each floor now draws from 6 or 7 props instead of 3, so rooms repeat less: ruins get trees, lanterns, crates and mushrooms; the crypt gets sarcophagi, urns and bones; the spire gets crystals, rune stones, telescopes and bookshelves.
+- The camp has a well, an anvil, two banners by the portal, a signpost, a lantern, a tree and crates.
+- 3 new enemies, using models that were built but never spawned: Ruin scorpion (floors 1 and 2; circles, then stings along a short line), Fire imp (floors 2 and 3; one fireball straight at you and one wide), Hex totem (floor 3; never moves, pulses a circle around itself).
+- Seeded rooms and waves differ from v1.1 for the same seed, because the prop and enemy pools grew.
+
 ## What's in v1.1
 - Procedurally generated rooms (seeded): irregular shapes, pits, props, hazards; every spawn and exit reachable.
 - Branching route: after each room pick a Battle, Elite, Treasure or Rest portal.
@@ -25,7 +32,7 @@ This branch holds the built site at the root (`index.html`, `game.js`) and every
 cd source
 npm install
 npm run build      # esbuild -> dist/game.js (copy it and index.html to the root to publish)
-npm test           # 1,042 unit tests (node:test, jsdom)
+npm test           # 1,101 unit tests (node:test, jsdom)
 npm run coverage   # fails below 100% lines, branches or functions; see tests/COVERAGE.txt
 python3 tests/play.py god   # headless bot playthrough (needs playwright + Chrome)
 ```

@@ -1,4 +1,4 @@
-// Unit tests for src/engine/assets.js and every module in src/assets/*.js (60 assets).
+// Unit tests for src/engine/assets.js and every module in src/assets/*.js (74 assets).
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -13,7 +13,8 @@ const TIMES = [0, 0.37, 1.1, 2.9, 7.3, 61.25, ...Array.from({ length: 48 }, (_, 
 
 // Assets whose update(group, t) is empty in the source: they are static and must not move.
 const STATIC = new Set([
-  "prop-barrels", "prop-bookshelf", "prop-gravestones", "prop-shop-stall", "prop-statue", "prop-weapon-rack",
+  "prop-anvil", "prop-barrels", "prop-bone-pile", "prop-bookshelf", "prop-crates", "prop-gravestones", "prop-sarcophagus",
+  "prop-shop-stall", "prop-signpost", "prop-statue", "prop-urns", "prop-weapon-rack",
   "tile-bridge", "tile-floor-moss", "tile-floor-stone", "tile-pillar", "tile-wall", "tile-wall-corner",
 ]);
 
@@ -39,7 +40,8 @@ const GUARDED = [
   "enemy-bat", "enemy-brute", "enemy-cultist", "enemy-goblin-archer", "enemy-imp", "enemy-mimic",
   "enemy-mushroom", "enemy-scorpion", "enemy-skeleton-knight", "enemy-slime", "enemy-spider", "enemy-totem",
   "pickup-coins", "pickup-item-pedestal",
-  "prop-brazier", "prop-campfire", "prop-cauldron", "prop-chest",
+  "prop-banner", "prop-brazier", "prop-campfire", "prop-cauldron", "prop-chest", "prop-crystal-cluster", "prop-dusk-tree",
+  "prop-lantern-post", "prop-mushroom-patch", "prop-rune-stone", "prop-telescope", "prop-well",
   "tile-doorway-exit", "tile-floor-cracked", "tile-floor-grate", "tile-spike-trap", "tile-stairs-down",
   "tile-wall-torch", "tile-water",
   "vfx-fireball", "vfx-telegraph-circle", "vfx-telegraph-cone",
@@ -69,9 +71,9 @@ function meshesOf(group) {
 
 // --- Registry ---------------------------------------------------------------
 
-test("ASSETS registers exactly the 60 modules in src/assets, each keyed by its meta id", () => {
+test("ASSETS registers exactly the 74 modules in src/assets, each keyed by its meta id", () => {
   const files = fs.readdirSync(ASSET_DIR).filter((f) => f.endsWith(".js")).map((f) => f.slice(0, -3)).sort();
-  assert.equal(files.length, 60);
+  assert.equal(files.length, 74);
   assert.deepEqual(ALL_IDS, files);
   for (const id of ALL_IDS) assert.equal(ASSETS[id].meta.id, id, `${id} meta.id matches its key`);
 });

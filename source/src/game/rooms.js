@@ -6,9 +6,9 @@ import { createRng, hashString } from "../core/rng.js";
 import { damagePlayer } from "./combat.js";
 
 export const FLOORS = {
-  1: { name: "Mossy ruins", tiles: ["tile-floor-moss", "tile-water"], props: ["tile-pillar", "prop-statue", "prop-barrels"], hazard: "water", boss: "slime-king" },
-  2: { name: "Crypt", tiles: ["tile-floor-stone", "tile-spike-trap"], props: ["prop-gravestones", "tile-pillar", "prop-barrels"], hazard: "spikes", boss: "stone-golem" },
-  3: { name: "Arcane spire", tiles: ["tile-floor-stone", "tile-floor-cracked"], props: ["tile-pillar", "prop-statue", "prop-brazier"], hazard: "embers", boss: "necromancer" },
+  1: { name: "Mossy ruins", tiles: ["tile-floor-moss", "tile-water"], props: ["tile-pillar", "prop-statue", "prop-barrels", "prop-dusk-tree", "prop-lantern-post", "prop-crates", "prop-mushroom-patch"], hazard: "water", boss: "slime-king" },
+  2: { name: "Crypt", tiles: ["tile-floor-stone", "tile-spike-trap"], props: ["prop-gravestones", "tile-pillar", "prop-barrels", "prop-sarcophagus", "prop-urns", "prop-bone-pile"], hazard: "spikes", boss: "stone-golem" },
+  3: { name: "Arcane spire", tiles: ["tile-floor-stone", "tile-floor-cracked"], props: ["tile-pillar", "prop-statue", "prop-brazier", "prop-crystal-cluster", "prop-rune-stone", "prop-telescope", "prop-bookshelf"], hazard: "embers", boss: "necromancer" },
 };
 
 const THEMES = {
@@ -18,7 +18,9 @@ const THEMES = {
   hub: { base: 0x3d3350, stones: [0x6b5a80, 0x7a6a92, 0x5e4f76], moss: [0x3f6b5e, 0x5a9a80], mossChance: 0.3, grass: 0x7a6ab0, tuft: 0x7cc8a0, root: 0x4a5a3a },
 };
 
-const PROP_R = { "tile-pillar": 0.4, "prop-statue": 0.45, "prop-barrels": 0.5, "prop-gravestones": 0.5, "prop-brazier": 0.3, "prop-chest": 0.5, "prop-campfire": 0.55 };
+const PROP_R = { "tile-pillar": 0.4, "prop-statue": 0.45, "prop-barrels": 0.5, "prop-gravestones": 0.5, "prop-brazier": 0.3, "prop-chest": 0.5, "prop-campfire": 0.55,
+  "prop-dusk-tree": 0.4, "prop-lantern-post": 0.25, "prop-crates": 0.5, "prop-mushroom-patch": 0.35, "prop-sarcophagus": 0.6, "prop-urns": 0.45,
+  "prop-bone-pile": 0.4, "prop-crystal-cluster": 0.4, "prop-rune-stone": 0.4, "prop-telescope": 0.4, "prop-bookshelf": 0.55 };
 const START = { x: 0, z: 3.0 };
 const EXIT_POS = { x: 0, z: -3.3 };
 
@@ -995,11 +997,11 @@ function addHazards(world, ctx, kind, cells) {
 
 // ---------------------------------------------------------------- waves
 const POOLS = {
-  1: ["skeleton", "skeleton", "slime", "slime", "rats", "archer", "bat"],
-  2: ["skeleton", "slime", "rats", "archer", "bat", "ghost", "ghost", "spider", "spider", "knight", "brute"],
-  3: ["skeleton", "archer", "bat", "ghost", "spider", "knight", "brute", "wisp", "wisp", "cultist", "cultist", "mushroom"],
+  1: ["skeleton", "skeleton", "slime", "slime", "rats", "archer", "bat", "scorpion"],
+  2: ["skeleton", "slime", "rats", "archer", "bat", "ghost", "ghost", "spider", "spider", "knight", "brute", "scorpion", "imp"],
+  3: ["skeleton", "archer", "bat", "ghost", "spider", "knight", "brute", "wisp", "wisp", "cultist", "cultist", "mushroom", "imp", "imp", "totem"],
 };
-const HEAVY = { brute: 1, knight: 1, cultist: 2, mushroom: 2, wisp: 3, archer: 2 };
+const HEAVY = { brute: 1, knight: 1, cultist: 2, mushroom: 2, wisp: 3, archer: 2, imp: 2, totem: 1 };
 
 // ctx: { layout, obstacles, avoid, start, elite, light }. With ctx.layout, spawns sit on reachable floor cells.
 export function waveFor(floor, index, rng, ctx) {
@@ -1196,6 +1198,14 @@ export function buildHub(world) {
     ["prop-weapon-rack", 3.3, -2.5, -0.1, 0.65],
     ["prop-cauldron", -3.4, 1.6, 0.6, 0.45],
     ["prop-altar", 3.4, 1.6, -0.6, 0.55],
+    ["prop-anvil", 2.0, -2.7, 0.5, 0.4],
+    ["prop-well", -4.1, -0.3, 0.3, 0.6],
+    ["prop-banner", -1.4, -3.5, 0, 0.2],
+    ["prop-banner", 1.4, -3.5, 0, 0.2],
+    ["prop-signpost", 1.7, 3.1, -0.5, 0.25],
+    ["prop-lantern-post", 4.3, -0.5, 2.6, 0.25],
+    ["prop-dusk-tree", -4.3, 3.3, 0, 0.4],
+    ["prop-crates", 4.2, 3.2, 0.4, 0.5],
   ];
   for (const [id, x, z, rot, r] of props) {
     place(ctx, id, x, 0, z, rot);
