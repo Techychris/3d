@@ -8,6 +8,13 @@ Browser game built with three.js r187. Fight through 3 floors of floating-island
 - Desktop: WASD to move, mouse to aim, J or left click to attack, Space or K to dodge, L to bash, Esc to pause.
 - Phone: play in landscape, with an on-screen stick and buttons.
 
+## What's in v1.3
+- Bridged islands: a room can now be 2 to 4 small islands joined by stone bridges (2 tiles wide), generated from the seed. See `screenshots/bridged-room-v1.3.png`.
+- About 47% of combat rooms are bridged (chance 0.4, 0.5, 0.6 on floors 1, 2, 3). The first room of a run and boss rooms stay one island.
+- Bridges never hold props, hazards, spawns or exits. The start and the exits sit on outer edges, so most rooms make you cross.
+- Walls stand only on edges that face open sky, so they never hide a gap or a bridge.
+- Known limit: walking enemies do not path across bridges. They wait on their island until you come to them; ranged enemies shoot across the gap.
+
 ## What's in v1.2
 - 14 new props (74 assets in total): dusk tree, lantern post, crates, glowcap mushrooms, sarcophagus, burial urns, bone pile, crystal cluster, rune stone, telescope, well, banner, signpost, anvil. See `screenshots/new-props-v1.2.png`.
 - Each floor now draws from 6 or 7 props instead of 3, so rooms repeat less: ruins get trees, lanterns, crates and mushrooms; the crypt gets sarcophagi, urns and bones; the spire gets crystals, rune stones, telescopes and bookshelves.
@@ -32,7 +39,7 @@ This branch holds the built site at the root (`index.html`, `game.js`) and every
 cd source
 npm install
 npm run build      # esbuild -> dist/game.js (copy it and index.html to the root to publish)
-npm test           # 1,101 unit tests (node:test, jsdom)
+npm test           # 1,105 unit tests (node:test, jsdom)
 npm run coverage   # fails below 100% lines, branches or functions; see tests/COVERAGE.txt
 python3 tests/play.py god   # headless bot playthrough (needs playwright + Chrome)
 ```

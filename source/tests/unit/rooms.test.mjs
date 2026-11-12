@@ -10,7 +10,7 @@ const ROOM_KINDS = ["combat", "elite", "treasure", "rest"];
 const D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const inBounds = (b, p, pad = 0) => p.x >= b.minX + pad - 1e-9 && p.x <= b.maxX - pad + 1e-9 && p.z >= b.minZ + pad - 1e-9 && p.z <= b.maxZ - pad + 1e-9;
 
-// Cells reachable from (si, sj) over floor cells, ignoring props.
+// Cells reachable from (si, sj) over floor and bridge cells, ignoring props.
 function reachFrom(L, si, sj) {
   const seen = new Uint8Array(L.w * L.h); const q = [[si, sj]]; seen[sj * L.w + si] = 1;
   const blockedObs = new Set(L.obstacles.map((o) => o.j * L.w + o.i));
@@ -19,7 +19,7 @@ function reachFrom(L, si, sj) {
     for (const [a, b] of D4) {
       const x = i + a, y = j + b; if (x < 0 || y < 0 || x >= L.w || y >= L.h) continue;
       const c = y * L.w + x;
-      if (L.kind[c] === 1 && !seen[c] && !blockedObs.has(c)) { seen[c] = 1; q.push([x, y]); }
+      if ((L.kind[c] === 1 || L.kind[c] === 4) && !seen[c] && !blockedObs.has(c)) { seen[c] = 1; q.push([x, y]); }
     }
   }
   return seen;
@@ -64,7 +64,7 @@ describe("generateLayout (ported from tests/rooms-gen.test.mjs)", () => {
       total++;
       const tag = `f${floor} ${boss ? "boss" : "room"} s${s}`;
       if (boss) assert.ok(L.w >= 11 && L.w <= 13 && L.h >= 9 && L.h <= 10, tag + " boss size");
-      else assert.ok(L.w >= 9 && L.w <= 13 && L.h >= 7 && L.h <= 10, tag + " size");
+      else assert.ok(L.w >= 9 && L.w <= 17 && L.h >= 7 && L.h <= 13, tag + " size"); // bridged islands reach 17 x 13
       sizes.add(L.w + "x" + L.h);
 
       // Every floor cell is reachable from the start (pits and stubs are holes).
@@ -713,4 +713,92 @@ it("generateLayout: from the lateFrom attempt on, rooms are accepted bare (no pr
   assert.equal(L.obstacles.length, 0);
   assert.equal(L.hazards.length, 0);
   assert.equal(L.exits.length, 1);
+});
+
+// ---------------------------------------------------------------- bridged islands
+describe("bridged islands", () => {
+  // Label every floor cell with its island: flood over floor only, so bridges separate the islands.
+  function islandsOf(L) {
+    const id = new Int32Array(L.w * L.h).fill(-1); let n = 0;
+    for (let s = 0; s < L.w * L.h; s++) {
+      if (L.kind[s] === 0 || L.kind[s] === 4 || id[s] >= 0) continue;
+      const q = [s]; id[s] = n;
+      while (q.length) {
+        const c = q.pop(), i = c % L.w, j = (c / L.w) | 0;
+        for (const [a, b] of D4) { const k = kindAt(L, i + a, j + b), t = (j + b) * L.w + i + a; if (k !== 0 && k !== 4 && id[t] < 0) { id[t] = n; q.push(t); } }
+      }
+      n++;
+    }
+    return { id, n };
+  }
+  const forced = (s, floor = 2, rt = "combat") => generateLayout("isle" + s, floor, false, 1 + (s % 2), 1 + (s % 4), rt, { isles: true });
+
+  it("splits the room into 2 to 4 islands that only bridges connect, with every bridge 2 wide and at least 2 long", () => {
+    const counts = new Set();
+    for (let s = 0; s < 80; s++) {
+      const L = forced(s, 1 + (s % 3));
+      const { id, n } = islandsOf(L);
+      const tag = "isle" + s;
+      assert.ok(n >= 2 && n <= 4, `${tag}: ${n} islands`);
+      counts.add(n);
+      let bridges = 0;
+      for (let j = 0; j < L.h; j++) for (let i = 0; i < L.w; i++) {
+        if (kindAt(L, i, j) !== 4) continue;
+        bridges++;
+        assert.equal(L.walk[j * L.w + i], 1, tag + " bridge is walkable");
+        // Along its run a bridge cell touches bridge or floor on both sides; across it, exactly one more bridge lane and then void.
+        const ew = [kindAt(L, i - 1, j), kindAt(L, i + 1, j)], ns = [kindAt(L, i, j - 1), kindAt(L, i, j + 1)];
+        const [run, side] = ew.every((k) => k !== 0) ? [ew, ns] : [ns, ew];
+        assert.ok(run.every((k) => k === 1 || k === 4), tag + " bridge run ends on floor");
+        assert.deepEqual([...side].sort(), [0, 4], tag + " bridge is exactly two lanes wide");
+      }
+      assert.ok(bridges >= 4 * (n - 1), `${tag}: ${bridges} bridge cells for ${n} islands`);
+      // Without bridges the islands are cut off from each other; with them everything is reachable (checked by reach).
+      const r = reachFrom({ ...L, obstacles: [] }, L.start.i, L.start.j);
+      for (let c = 0; c < L.w * L.h; c++) if (L.kind[c] === 1 || L.kind[c] === 4) assert.ok(r[c], tag + " unreachable cell");
+      for (let c = 0; c < L.w * L.h; c++) if (L.kind[c] === 1) assert.equal(L.reach[c] || L.blocked[c], 1, tag + " reach covers every island");
+    }
+    assert.deepEqual([...counts].sort(), [2, 3, 4], "two, three and four island rooms all occur");
+  });
+
+  it("keeps props, hazards, spawns, the start and the exits off bridges, with start and exits on outer edges", () => {
+    for (let s = 0; s < 60; s++) {
+      const L = forced(s, 1 + (s % 3), ROOM_KINDS[s % 4]);
+      const tag = "isle" + s;
+      for (const o of L.obstacles) assert.equal(kindAt(L, o.i, o.j), 1, tag + " prop on a bridge");
+      for (const [x, z] of L.hazards) assert.equal(kindAt(L, ...cellOf(L, x, z)), 1, tag + " hazard on a bridge");
+      for (const p of waveFor(2, 2, createRng(s + 1), { layout: L })) assert.equal(kindAt(L, ...cellOf(L, p.x, p.z)), 1, tag + " spawn on a bridge");
+      assert.equal(kindAt(L, L.start.i, L.start.j), 1);
+      for (const e of L.exits) {
+        assert.equal(kindAt(L, e.i, e.j), 1);
+        for (let j = e.j - 1; j >= 0; j--) assert.equal(kindAt(L, e.i, j), 0, tag + " exit faces another island");
+      }
+    }
+  });
+
+  it("is chosen by the layout seed: never in the first room of floor 1, sometimes later, and never when forced off or in a boss room", () => {
+    const hasBridge = (L) => L.kind.includes(4);
+    let later = 0;
+    for (let s = 0; s < 60; s++) {
+      assert.equal(hasBridge(generateLayout("pick" + s, 1, false, 1, 0, "combat")), false, "first room of floor 1 stays one island");
+      if (hasBridge(generateLayout("pick" + s, 2, false, 1, 0, "combat"))) later++;
+      assert.equal(hasBridge(generateLayout("pick" + s, 3, false, 1, 2, "combat", { isles: false })), false);
+      assert.equal(hasBridge(generateLayout("pick" + s, 3, true, 1, 4, "combat", { isles: true })), false, "boss rooms stay one island");
+    }
+    assert.ok(later >= 15 && later <= 45, `${later} of 60 floor 2 rooms are bridged (chance 0.5)`);
+  });
+
+  it("builds a bridged room: walkable grid across the bridge, no wall on edges that face another island", () => {
+    const seed = "isle7";
+    const L = generateLayout(seed, 2, false, 1, 2, "combat");
+    const world = makeWorld({ withPlayer: true });
+    const room = buildRoom(world, { floor: 2, index: 2, seed });
+    assert.deepEqual(Array.from(room.layout.kind), Array.from(L.kind));
+    const at = L.kind.indexOf(4);
+    assert.equal(world.grid.walk[at], 1, "the bridge is part of the walk grid");
+    assert.ok(room.spawns.length >= 2);
+    assert.ok(inBounds(room.cameraBounds, room.playerStart));
+    room.dispose();
+    assert.equal(room.group.parent, null);
+  });
 });
