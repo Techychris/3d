@@ -15,7 +15,7 @@ const ctxOf = () => ({ group: new THREE.Group(), ownedGeos: [], ownedMats: [], a
 const run = (L, floor, rng, extra = {}) => {
   const ctx = ctxOf();
   const kAt = (i, j) => (i < 0 || j < 0 || i >= L.w || j >= L.h ? 0 : L.kind[j * L.w + i]);
-  const res = addDecor(ctx, L, { floor, rng, stones: [0x6b5a80], kAt, isTall: (i, j) => j === 0 && i < 4, torchCells: new Set(["2,0"]), ...extra });
+  const res = addDecor(ctx, L, { floor, rng, stones: [0x6b5a80], kAt, wallN: (i, j) => kAt(i, j - 1) === 0, isTall: (i, j) => j === 0 && i < 4, torchCells: new Set(["2,0"]), ...extra });
   return { ctx, res, names: ctx.group.children.map((c) => c.name) };
 };
 

@@ -57,7 +57,7 @@ void main(){
   gl_FragColor = vec4(uColor + 0.35 * s * flow, a);
 }`;
 
-// addDecor(ctx, L, { floor, rng, stones, kAt(i, j), isTall(i, j), torchCells }) -> { banners, falls, dashes }
+// addDecor(ctx, L, { floor, rng, stones, kAt(i, j), wallN(i, j), isTall(i, j), torchCells }) -> { banners, falls, dashes }
 export function addDecor(ctx, L, o) {
   const d = DECOR[o.floor], rng = o.rng, cx = (i) => L.x0 + i + 0.5, cz = (j) => L.z0 + j + 0.5;
   const stone = () => o.stones[rng.int(0, o.stones.length - 1)];
@@ -67,7 +67,7 @@ export function addDecor(ctx, L, o) {
     const x = cx(i), z = cz(j);
     if (o.kAt(i, j + 1) === 0) south.push({ i, j });
     else if (o.kAt(i + 1, j) === 0) east.push({ i, j });
-    if (o.kAt(i, j - 1) !== 0) continue;
+    if (!o.wallN(i, j)) continue; // only where a back wall stands
     const wz = z - 0.7;
     if (!o.isTall(i, j)) {
       if (rng() < 0.2) { // broken column on a low wall

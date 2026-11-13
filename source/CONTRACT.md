@@ -122,6 +122,7 @@ waveFor(floor, index, rng) -> [{type, x, z}]   // 3–6 enemies on floor 1, grow
 - Exit: `vfx-portal` (or `tile-stairs-down` on boss rooms) at the far side; closed = dim and blocked by a violet seal; `setOpen(true)` when main says the room is clear. Main detects the player standing within 0.8 of the exit.
 - Hazards (push into `world.hazards`, each `{update(world, dt), dispose(world), dead}`): floor 1 shallow water tiles slow the player 30% while inside (set `world.player.slowMul`), floor 2 spike traps (`tile-spike-trap`: warning glow ≥ 0.3 s, then spikes; 12 damage if the player stands on it), floor 3 ember cracks (`tile-floor-cracked`: 6 damage per second while standing on it). Use `damagePlayer` from `src/game/combat.js`.
 - 3+ handmade layouts per floor (obstacle positions), picked by seed.
+- Added in v1.3: layout cell kind 4 = bridge (walkable, in `world.grid.walk`; drawn as a stone deck over the void). `generateLayout(..., { isles: true|false })` forces bridged islands on or off; by default the layout seed decides (chance 0.4 / 0.5 / 0.6 by floor, never floor 1 room 0, never boss rooms). Anything that walks should use `world.grid`, not `layout.kind === 1`.
 
 ## Module E: UI (`src/ui/ui.js`, `src/ui/style.css`)
 ```

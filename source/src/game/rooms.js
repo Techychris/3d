@@ -126,7 +126,8 @@ function place(ctx, id, x, y, z, rotY, opts = {}) {
   return { asset, keptLive };
 }
 // ================================================================ procedural layout (pure: no rendering)
-// Cell kinds: 0 void/outside, 1 floor, 2 pit (void hole inside the room), 3 wall stub (solid block).
+// Cell kinds: 0 void/outside, 1 floor, 2 pit (void hole inside the room), 3 wall stub (solid block),
+// 4 bridge (walkable deck over the void that joins two islands; never holds props, spawns, hazards or exits).
 const D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 function openOnly(k, W, H) {
@@ -207,6 +208,39 @@ function shapeBoss(rng) {
   return { k, W, H };
 }
 
+// Two to four small islands on a slot grid (one or two columns by one or two rows), joined by 2-wide bridges.
+function shapeIslands(rng) {
+  const cols = rng() < 0.75 ? 2 : 1, rows = cols === 1 ? 2 : rng.int(1, 2);
+  const gx = rng.int(2, 3), gz = 2;
+  const ws = cols === 2 ? [rng.int(5, 7), rng.int(5, 7)] : [rng.int(9, 11)];
+  const hs = rows === 2 ? [rng.int(4, 5), rng.int(5, 6)] : [rng.int(7, 9)];
+  const W = ws[0] + (cols === 2 ? gx + ws[1] : 0), H = hs[0] + (rows === 2 ? gz + hs[1] : 0);
+  const xs = [0, ws[0] + gx], zs = [0, hs[0] + gz];
+  const k = new Uint8Array(W * H);
+  const slots = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) slots.push({ r, c });
+  if (slots.length === 4 && rng() < 0.5) slots.splice(rng.int(0, 3), 1); // an L of three
+  const has = (r, c) => slots.some((s) => s.r === r && s.c === c);
+  for (const s of slots) {
+    const x = xs[s.c], z = zs[s.r], w = ws[s.c], h = hs[s.r];
+    fillRect(k, W, x, z, w, h, 1);
+    for (const [cx, cz] of [[x, z], [x + w - 1, z], [x, z + h - 1], [x + w - 1, z + h - 1]]) if (rng() < 0.4) k[cz * W + cx] = 0; // bitten corners
+  }
+  // One bridge between each pair of neighbouring islands; a ring of four may lose one link.
+  const links = [];
+  for (const s of slots) {
+    if (has(s.r, s.c + 1)) links.push([s, true]);
+    if (has(s.r + 1, s.c)) links.push([s, false]);
+  }
+  if (links.length === 4 && rng() < 0.5) links.splice(rng.int(0, 3), 1);
+  for (const [s, across] of links) {
+    // Bridges stay off the corner rows and columns, so both ends always meet floor.
+    if (across) fillRect(k, W, ws[0], zs[s.r] + rng.int(1, hs[s.r] - 3), gx, 2, 4);
+    else fillRect(k, W, xs[s.c] + rng.int(1, ws[s.c] - 3), hs[0], 2, gz, 4);
+  }
+  return { k, W, H };
+}
+
 function cropToLayout(shape, floor, boss) {
   const { k, W, H } = shape;
   let minI = W, maxI = -1, minJ = H, maxJ = -1, count = 0;
@@ -224,6 +258,11 @@ export function rectLayout(w, h) { return makeLayoutBase(new Uint8Array(w * h).f
 
 const kAt = (L, i, j) => (i < 0 || j < 0 || i >= L.w || j >= L.h) ? 0 : L.kind[j * L.w + i];
 const ccx = (L, i) => L.x0 + i + 0.5, ccz = (L, j) => L.z0 + j + 0.5;
+// True when only void lies beyond cell (i, j) in direction (di, dj): that edge faces open sky, not another island.
+function openTo(L, i, j, di, dj) {
+  for (let a = i + di, b = j + dj; a >= 0 && b >= 0 && a < L.w && b < L.h; a += di, b += dj) if (L.kind[b * L.w + a] !== 0) return false;
+  return true;
+}
 
 function ringClear(L, i0, j0, iw, ih) {
   for (let j = j0 - 1; j <= j0 + ih; j++) for (let i = i0 - 1; i <= i0 + iw; i++) if (kAt(L, i, j) !== 1) return false;
@@ -252,13 +291,13 @@ function flood(L, si, sj, blocked) {
   const { w, h, kind } = L; const r = new Uint8Array(w * h); const q = [si + sj * w]; r[q[0]] = 1;
   while (q.length) {
     const c = q.pop(), i = c % w, j = (c / w) | 0;
-    for (const [di, dj] of D4) { const a = i + di, b = j + dj; if (a < 0 || b < 0 || a >= w || b >= h) continue; const t = b * w + a; if (kind[t] === 1 && !blocked[t] && !r[t]) { r[t] = 1; q.push(t); } }
+    for (const [di, dj] of D4) { const a = i + di, b = j + dj; if (a < 0 || b < 0 || a >= w || b >= h) continue; const t = b * w + a; if ((kind[t] === 1 || kind[t] === 4) && !blocked[t] && !r[t]) { r[t] = 1; q.push(t); } }
   }
   return r;
 }
 
 function isTall(L, i, j) {
-  if (kAt(L, i, j - 1) !== 0) return false;
+  if (!openTo(L, i, j, 0, -1)) return false;
   for (let b = 1; b <= 2; b++) for (let a = 1; a <= 2; a++) if (kAt(L, i - a, j - b) !== 0) return false;
   return true;
 }
@@ -271,13 +310,13 @@ function populate(rng, L, f, boss, nEx, level, roomType) {
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (kAt(L, i, j) === 1) cells.push({ i, j, x: ccx(L, i), z: ccz(L, j) });
   const midX = L.x0 + w / 2;
   // start: front edge cell near the middle
-  let pool = cells.filter((c) => clean3(c.i, c.j) && kAt(L, c.i, c.j + 1) === 0 && kAt(L, c.i, c.j - 1) === 1 && kAt(L, c.i - 1, c.j) === 1 && kAt(L, c.i + 1, c.j) === 1);
+  let pool = cells.filter((c) => clean3(c.i, c.j) && openTo(L, c.i, c.j, 0, 1) && kAt(L, c.i, c.j - 1) === 1 && kAt(L, c.i - 1, c.j) === 1 && kAt(L, c.i + 1, c.j) === 1);
   if (!pool.length) pool = cells.filter((c) => clean3(c.i, c.j) && kAt(L, c.i + 1, c.j) === 0 && kAt(L, c.i - 1, c.j) === 1 && kAt(L, c.i, c.j - 1) === 1 && kAt(L, c.i, c.j + 1) === 1);
   if (!pool.length) return false;
   pool.sort((a, b) => Math.abs(a.x - midX) - Math.abs(b.x - midX));
   const start = pool[rng.int(0, Math.min(3, pool.length - 1))];
   // exits: back edge cells far from the start
-  const ec = cells.filter((c) => kAt(L, c.i, c.j - 1) === 0 && kAt(L, c.i, c.j + 1) === 1 && clean3(c.i, c.j) && Math.hypot(c.x - start.x, c.z - start.z) >= 4.5)
+  const ec = cells.filter((c) => openTo(L, c.i, c.j, 0, -1) && kAt(L, c.i, c.j + 1) === 1 && clean3(c.i, c.j) && Math.hypot(c.x - start.x, c.z - start.z) >= 4.5)
     .map((c) => ({ ...c, score: Math.hypot(c.x - start.x, c.z - start.z) + (isTall(L, c.i, c.j) ? 3 : 0) + rng() * 3 }))
     .sort((a, b) => b.score - a.score);
   if (!ec.length) return false;
@@ -393,15 +432,16 @@ function sdField(L) {
 function finalizeLayout(L) {
   const { w, h } = L;
   L.walk = new Uint8Array(w * h);
-  for (let n = 0; n < w * h; n++) L.walk[n] = L.kind[n] === 1 ? 1 : 0;
+  for (let n = 0; n < w * h; n++) L.walk[n] = L.kind[n] === 1 || L.kind[n] === 4 ? 1 : 0;
   let minI = w, maxI = -1, minJ = h, maxJ = -1;
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (L.walk[j * w + i]) { minI = Math.min(minI, i); maxI = Math.max(maxI, i); minJ = Math.min(minJ, j); maxJ = Math.max(maxJ, j); }
   L.bounds = { minX: L.x0 + minI, maxX: L.x0 + maxI + 1, minZ: L.z0 + minJ, maxZ: L.z0 + maxJ + 1 };
   return L;
 }
 
+const ISLES_CHANCE = [0, 0.4, 0.5, 0.6];
 // generateLayout(seed, floor, boss, exitsCount, index, roomType) -> layout (deterministic from the arguments)
-// opts is a test seam: { attempts } caps the procedural tries, { lateFrom } is the try that starts accepting
+// opts is a test seam: { isles } forces bridged islands on or off, { attempts } caps the procedural tries, { lateFrom } is the try that starts accepting
 // bare rooms (default 90), { rect: [w, h] } sizes the rectangle fallback.
 export function generateLayout(seed, floor = 1, boss = false, exitsCount = 1, index = 0, roomType = "combat", opts = {}) {
   const attempts = opts.attempts ?? 120, lateFrom = opts.lateFrom ?? 90, rect = opts.rect || (boss ? [12, 10] : [11, 8]);
@@ -409,8 +449,11 @@ export function generateLayout(seed, floor = 1, boss = false, exitsCount = 1, in
   const nEx = Math.max(1, Math.min(2, (Array.isArray(exitsCount) ? exitsCount.length : exitsCount) | 0 || 1));
   const rt = boss ? "combat" : roomType;
   const rng = createRng(hashString(`${seed}|${f}|${index}|${boss ? "b" : "r"}|${rt}|layout`));
+  // Bridged islands: never the first room of a run, more often on deeper floors. opts.isles forces the choice.
+  const roll = rng();
+  const isles = !boss && (opts.isles ?? ((f > 1 || index > 0) && roll < ISLES_CHANCE[f]));
   for (let attempt = 0; attempt < attempts; attempt++) {
-    const L = cropToLayout(boss ? shapeBoss(rng) : shapeNormal(rng), f, boss);
+    const L = cropToLayout(boss ? shapeBoss(rng) : isles ? shapeIslands(rng) : shapeNormal(rng), f, boss);
     if (!L) continue;
     addFeatures(rng, L, f, boss);
     const last = attempt >= lateFrom; // late attempts accept bare rooms
@@ -438,15 +481,33 @@ function boxR(list, w, h, d, x, y, z, color, ry = 0) {
 
 // ---------------------------------------------------------------- island
 // Builds the floating island for a layout: floor tiles, rims, earth band, tapered rock underside, roots, pits.
+// One bridge cell: stone deck with two worn slabs, a keel beam under it, and a low parapet with a post on each open side.
+function bridgeCell(geos, rng, theme, L, i, j, x, z) {
+  const alongX = kAt(L, i - 1, j) !== 0 && kAt(L, i + 1, j) !== 0;
+  const rail = shade(theme.stones[1], 1.25);
+  boxR(geos, 1.0, 0.1, 1.0, x, -0.09, z, shade(theme.stones[0], 0.62));
+  boxR(geos, alongX ? 1.0 : 0.5, 0.3, alongX ? 0.5 : 1.0, x, -0.28, z, shade(theme.base, 0.7));
+  for (const s of [-0.25, 0.25]) {
+    const c = shade(theme.stones[1], 1.12 + rng() * 0.2); // lighter than the floor, so the crossing reads at a glance
+    boxR(geos, alongX ? 0.46 : 0.96, 0.05, alongX ? 0.96 : 0.46, x + (alongX ? s : 0), -0.025, z + (alongX ? 0 : s), c);
+  }
+  for (const s of [-1, 1]) {
+    if ((alongX ? kAt(L, i, j + s) : kAt(L, i + s, j)) !== 0) continue; // the other lane of the bridge
+    boxR(geos, alongX ? 1.0 : 0.12, 0.16, alongX ? 0.12 : 1.0, x + (alongX ? 0 : s * 0.54), 0.06, z + (alongX ? s * 0.54 : 0), rail);
+    boxR(geos, 0.18, 0.3, 0.18, x + (alongX ? 0.41 : s * 0.54), 0.13, z + (alongX ? s * 0.54 : 0.41), shade(rail, 0.8));
+  }
+}
+
 function buildIsland(rng, theme, L) {
   const geos = [], glowGeos = [];
   const { w, h } = L;
-  const K = (i, j) => kAt(L, i, j);
+  const K = (i, j) => { const k = kAt(L, i, j); return k === 4 ? 0 : k; }; // bridges are sky as far as the island is concerned
   const X = (i) => ccx(L, i), Z = (j) => ccz(L, j);
   const EARTH = 0x9a6a62, DEEP = 0x4a2f45;
   const hazMask = L.hazMask;
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
     const k = K(i, j);
+    if (kAt(L, i, j) === 4) bridgeCell(geos, rng, theme, L, i, j, X(i), Z(j));
     if (k === 0) continue;
     const x = X(i), z = Z(j);
     const nVoid = D4.map(([a, b]) => K(i + a, j + b) === 0);
@@ -570,7 +631,7 @@ function buildIsland(rng, theme, L) {
 // Tapered rock underside: a bowl heightfield (0.5 tile lattice) that starts at the outline and deepens inwards.
 function buildBowl(rng, L, geos, theme) {
   const { w, h } = L, N = 2, W2 = w * N + 1, H2 = h * N + 1, TOP = -0.78;
-  const K = (i, j) => kAt(L, i, j);
+  const K = (i, j) => { const k = kAt(L, i, j); return k === 4 ? 0 : k; };
   const sdAt = (vx, vz) => {
     let best = 4;
     const ci = Math.floor(vx - L.x0), cj = Math.floor(vz - L.z0);
@@ -803,7 +864,8 @@ function addObstacle(world, ctx, x, z, r) {
 function addWalls(ctx, L, torchCells) {
   for (let j = 0; j < L.h; j++) for (let i = 0; i < L.w; i++) {
     if (kAt(L, i, j) !== 1) continue;
-    const x = ccx(L, i), z = ccz(L, j), voidN = kAt(L, i, j - 1) === 0, voidW = kAt(L, i - 1, j) === 0;
+    // Walls stand only on edges that face open sky: an edge that faces another island stays open, so it never hides the gap.
+    const x = ccx(L, i), z = ccz(L, j), voidN = openTo(L, i, j, 0, -1), voidW = openTo(L, i, j, -1, 0);
     if (voidN) {
       if (isTall(L, i, j)) place(ctx, torchCells.has(i + "," + j) ? "tile-wall-torch" : "tile-wall", x, -0.04, z - 0.7, 0);
       else place(ctx, "tile-wall", x, -0.04, z - 0.7, 0, { skip: ["upper"] });
@@ -1144,7 +1206,7 @@ export function buildRoom(world, { floor = 1, index = 0, boss = false, seed = 1,
   }
   const torchCells = pickTorches(rng, L, rng.int(3, 5));
   addWalls(ctx, L, torchCells);
-  addDecor(ctx, L, { floor: f, rng: createRng(hashString(`${seed}|${f}|${index}|decor`)), stones: theme.stones, kAt: (i, j) => kAt(L, i, j), isTall: (i, j) => isTall(L, i, j), torchCells });
+  addDecor(ctx, L, { floor: f, rng: createRng(hashString(`${seed}|${f}|${index}|decor`)), stones: theme.stones, kAt: (i, j) => kAt(L, i, j), wallN: (i, j) => openTo(L, i, j, 0, -1), isTall: (i, j) => isTall(L, i, j), torchCells });
 
   // Obstacles (theme props, chest, campfire).
   let chest = null;
