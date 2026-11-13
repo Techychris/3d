@@ -199,6 +199,17 @@ describe("resize", () => {
     assert.equal(composer.pr, renderer.getPixelRatio());
   });
 
+  it("on a short screen (a phone in landscape) pulls back 10% and slides the room left of centre", () => {
+    const desk = make(1600, 900), phone = make(844, 390);
+    desk.r.resize(); phone.r.resize();
+    const d = desk.r.camera, p = phone.r.camera;
+    closeTo(d.left, -d.right);                                   // desktop: centred
+    assert.ok(p.right > -p.left, "the view is shifted right, so the room appears left");
+    closeTo((p.right + p.left) / (p.right - p.left), 0.08);      // by 8% of the half width
+    closeTo(p.top, d.top * 1.1);                                 // and 10% further back
+    closeTo(p.top, -p.bottom);
+  });
+
   it("falls back to the window size when the container has no size", () => {
     const { renderer, r } = make(0, 0);
     r.resize();

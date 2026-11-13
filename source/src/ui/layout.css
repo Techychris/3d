@@ -72,3 +72,25 @@
 .dusk-ui .bar.boss{height:5px;border-radius:3px}
 @media (max-width:1000px){.dusk-ui .hud-top.bossbar{top:calc(max(8px,env(safe-area-inset-top)) + 28px);width:min(260px,40vw)}.dusk-ui .minimap{width:96px;height:72px}}
 .dusk-ui .hud-tr .prog,.dusk-ui .hud-tr .prog .foes{color:var(--text);text-shadow:0 1px 2px #000c,0 0 6px #000a,0 0 12px #0008}
+/* Phones in landscape: the HUD shrinks to the corners so it stops covering the room */
+@media (max-height:480px){
+ .dusk-ui .hud{font-size:.75rem}
+ .dusk-ui .hud-tl{width:132px}
+ .dusk-ui .hud-tl .bar.hp{margin-top:18px;height:5px}
+ .dusk-ui .hud-tl .bar.hp b{font-size:.75rem;line-height:16px;top:-19px;left:20px}
+ .dusk-ui .hud-tl .bar.hp .ico{width:16px;height:16px;top:-19px}
+ .dusk-ui .hud-tr{gap:var(--space-4)}
+ .dusk-ui .hud-tr .prog{gap:0}
+ .dusk-ui .prog .fl{font-size:.6875rem}
+ .dusk-ui .prog .row2{font-size:.625rem;gap:var(--space-8)}
+ .dusk-ui .prog .pips i{transform:scale(.8)}
+ .dusk-ui .minimap{width:60px;height:45px;opacity:.85}
+ .dusk-ui .pausebtn{width:36px;height:36px;min-height:0;padding:0}
+ .dusk-ui .compass{display:none}
+ .dusk-ui .hud-top.bossbar{top:max(6px,env(safe-area-inset-top));width:min(220px,30vw);min-width:150px}
+ .dusk-ui .tagchips{transform:scale(.8);transform-origin:left bottom}
+ .dusk-tbtn{opacity:.72}
+ .dusk-tbtn .lbl{display:none}
+ .dusk-tbtn.attack{width:68px;height:68px}
+ .dusk-tbtn.dodge,.dusk-tbtn.skill{width:52px;height:52px}
+}

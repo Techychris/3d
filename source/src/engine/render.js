@@ -73,8 +73,10 @@ export function createRenderer(container) {
     composer.setPixelRatio(renderer.getPixelRatio());
     const a = w / Math.max(h, 1);
     // fit a 12 x 10 tile area at any aspect (room 10 x 8 plus margin)
-    const needH = Math.max(halfH, 7.4 / a);
-    camera.left = -needH * a / zoom; camera.right = needH * a / zoom; camera.top = needH / zoom; camera.bottom = -needH / zoom;
+    // Short screens (phones in landscape) carry the HUD and touch buttons over the view, mostly on the right:
+    // pull back a little and slide the room left so the action sits in the clear part of the screen.
+    const phone = h < 480, needH = Math.max(halfH, 7.4 / a) * (phone ? 1.1 : 1), half = needH * a / zoom, slide = phone ? half * 0.08 : 0;
+    camera.left = -half + slide; camera.right = half + slide; camera.top = needH / zoom; camera.bottom = -needH / zoom;
     camera.updateProjectionMatrix();
     hT.uniforms.h.value = 1.6 / w; vT.uniforms.v.value = 1.6 / h;
   }
