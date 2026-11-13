@@ -4,6 +4,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { makeAsset } from "../engine/assets.js";
 import { createRng, hashString } from "../core/rng.js";
 import { damagePlayer } from "./combat.js";
+import { addDecor } from "./decor.js";
 
 export const FLOORS = {
   1: { name: "Mossy ruins", tiles: ["tile-floor-moss", "tile-water"], props: ["tile-pillar", "prop-statue", "prop-barrels", "prop-dusk-tree", "prop-lantern-post", "prop-crates", "prop-mushroom-patch"], hazard: "water", boss: "slime-king" },
@@ -1141,7 +1142,9 @@ export function buildRoom(world, { floor = 1, index = 0, boss = false, seed = 1,
     ctx.group.add(glow); ctx.ownedGeos.push(glow.geometry); ctx.ownedMats.push(glow.material);
     ctx.animFns.push((w, t) => { glow.material.opacity = 0.7 + 0.3 * Math.sin(t * 1.5); });
   }
-  addWalls(ctx, L, pickTorches(rng, L, rng.int(2, 3)));
+  const torchCells = pickTorches(rng, L, rng.int(3, 5));
+  addWalls(ctx, L, torchCells);
+  addDecor(ctx, L, { floor: f, rng: createRng(hashString(`${seed}|${f}|${index}|decor`)), stones: theme.stones, kAt: (i, j) => kAt(L, i, j), isTall: (i, j) => isTall(L, i, j), torchCells });
 
   // Obstacles (theme props, chest, campfire).
   let chest = null;

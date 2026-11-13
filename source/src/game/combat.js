@@ -2,6 +2,7 @@
 import * as THREE from "three";
 import { COLORS } from "../engine/assets.js";
 import { inCircle, inLine, inCone, yawOf } from "./world.js";
+import { checkTable, transition } from "../core/fsm.js";
 
 const TAU = Math.PI * 2;
 const HURT_IFRAMES = 0.4;        // brief invulnerability after a real hit (>= 5 damage)
@@ -185,13 +186,24 @@ export function damagePlayer(world, amount, sourceName = "Something") {
 
 const Y_BASE = 0.03;
 
+// A telegraph fills during "windup", resolves once (damage) and fades, then is "done". Cancelled in windup, it never
+// resolves. `resolved` and `dead` are read-outs of the state, so they cannot disagree with it.
+export const TELEGRAPH_FLOW = checkTable({
+  windup: { RESOLVE: "fade", CANCEL: "cancelled" },
+  fade: { END: "done", CANCEL: "done" },
+  done: { CANCEL: "done" },
+  cancelled: { CANCEL: "cancelled" },
+});
+
 export function spawnTelegraph(world, o) {
   const shape = o.shape || "circle";
   const t = {
     shape, x: o.x, z: o.z, angle: o.angle ?? 0, radius: o.radius ?? 1, length: o.length ?? 3, width: o.width ?? 0.8,
     arc: o.arc ?? Math.PI / 2, windup: Math.max(0.05, o.windup ?? 0.6), damage: o.damage ?? 10,
     sourceName: o.sourceName || "Something", onResolve: o.onResolve || null,
-    age: 0, progress: 0, resolved: false, fade: 0, dead: false, group: new THREE.Group(), update, dispose, cancel,
+    age: 0, progress: 0, state: "windup", fade: 0, group: new THREE.Group(), update, dispose, cancel,
+    get resolved() { return t.state === "fade" || t.state === "done"; },
+    get dead() { return t.state === "done" || t.state === "cancelled"; },
   };
   const owned = [];
 
@@ -232,7 +244,7 @@ export function spawnTelegraph(world, o) {
     if (t.dead) return;
     t.group.position.x = t.x; t.group.position.z = t.z;
     if (shape !== "circle") t.group.rotation.y = t.angle;
-    if (!t.resolved) {
+    if (t.state === "windup") {
       t.age += dt;
       t.progress = Math.min(1, t.age / t.windup);
       const k = Math.max(0.001, t.progress);
@@ -245,12 +257,12 @@ export function spawnTelegraph(world, o) {
       t.fade += dt;
       const u = Math.min(1, t.fade / 0.18);
       fillMat.opacity = 0.9 * (1 - u); baseMat.opacity = 0.12 * (1 - u); lineMat.opacity = 1 - u;
-      if (u >= 1) t.dead = true;
+      if (u >= 1) transition(TELEGRAPH_FLOW, t, "END");
     }
   }
 
   function resolve(w) {
-    t.resolved = true;
+    transition(TELEGRAPH_FLOW, t, "RESOLVE");
     fill.scale.set(1, 1, 1);
     fillMat.color.setHex(0xffd0d8); lineMat.color.setHex(0xffffff);
     const p = w.player;
@@ -274,9 +286,9 @@ export function spawnTelegraph(world, o) {
     if (t.onResolve) t.onResolve(w, hit);
   }
 
-  function cancel() { t.dead = true; }
+  function cancel() { transition(TELEGRAPH_FLOW, t, "CANCEL"); }
   function dispose(w) {
-    if (t.disposed) return; t.disposed = true; t.dead = true;
+    if (t.disposed) return; t.disposed = true; cancel();
     (w || world).remove(t.group);
     fillGeo.dispose(); outGeo.dispose();
     for (const m of owned) m.dispose();

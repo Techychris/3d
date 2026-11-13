@@ -48,6 +48,7 @@ export async function installDom(html = "<!doctype html><html><body><div id='ui'
     const v = k === "PointerEvent" ? (dom.window.PointerEvent || dom.window.MouseEvent) : dom.window[k];
     Object.defineProperty(g, k, { value: v, configurable: true, writable: true });
   }
+  dom.window.HTMLCanvasElement.prototype.getContext = () => null; // jsdom has no canvas
   dom.cleanup = () => { for (const k of keys) { if (saved[k]) Object.defineProperty(g, k, saved[k]); else delete g[k]; } dom.window.close(); };
   return dom;
 }

@@ -3,6 +3,22 @@ import * as THREE from "three";
 import { makeAsset, COLORS } from "../engine/assets.js";
 import { resolveCollision, inCone, yawOf } from "./world.js";
 import { damageEnemy, applyStatus, makeSectorGeometry } from "./combat.js";
+import { checkTable, createMachine } from "../core/fsm.js";
+
+// What the player's body is doing. "free": walk, attack, bash. "dodge": a fixed dash with invulnerability.
+// "recover": a brief lockout after the dash. Death is final.
+export const PLAYER_FLOW = checkTable({
+  free: { DODGE: "dodge", DIE: "dead" },
+  dodge: { LAND: "recover", DIE: "dead" },
+  recover: { READY: "free", DIE: "dead" },
+  dead: {},
+});
+// The sword swing. Damage lands on HIT (SWING_HIT_AT of the way through); a dodge cancels the swing.
+export const SWING_FLOW = checkTable({
+  idle: { SWING: "windup" },
+  windup: { HIT: "follow", CANCEL: "idle", SWING: "windup" },
+  follow: { END: "idle", CANCEL: "idle", SWING: "windup" },
+});
 
 const S = Math.SQRT1_2;
 const ATTACK_RADIUS = 1.3, ATTACK_ARC = Math.PI * 110 / 180;
@@ -42,13 +58,16 @@ export function createPlayer(world, heroId = "hero-warrior") {
   const player = {
     x: 0, z: 0, yaw: 0, hp: maxHp, maxHp, radius: 0.3, group, invuln: 0, dodgeCd: 0, skillCd: 0, shield: 0, dead: false, name: "You",
     // extras (see exports): read-only for other modules
-    dodging: false, slowMul: 1, skillMax: BASH_CD, dodgeMax: stats0.dodgeCooldown || 0.8,
+    get dodging() { return act.is("dodge"); }, slowMul: 1, skillMax: BASH_CD, dodgeMax: stats0.dodgeCooldown || 0.8,
     update, dispose, heal,
   };
 
   let visYaw = 0, atkCd = 0;
-  let swingT = -1, swingDur = 0.2, swingYaw = 0, swingHit = false, swingDir = 1;
-  let dodgeT = 0, recoverT = 0, dodgeX = 0, dodgeZ = 1, ghost = false;
+  // the body goes translucent exactly while the state is "dodge"
+  const act = createMachine(PLAYER_FLOW, "free", (next, prev) => { if ((next === "dodge") !== (prev === "dodge")) setGhost(next === "dodge"); });
+  const swing = createMachine(SWING_FLOW, "idle");
+  let swingT = 0, swingDur = 0.2, swingYaw = 0, swingDir = 1; // swingT: 0..1 through the swing
+  let left = 0, dodgeX = 0, dodgeZ = 1;                        // left: seconds left in "dodge" / "recover"
   let lungeT = 0, bashT = -1, deadT = 0, stepT = 0, wasHurtBlink = false;
   let lastMaxHp = maxHp;
 
@@ -63,13 +82,12 @@ export function createPlayer(world, heroId = "hero-warrior") {
 
   function doSwing(st) {
     swingDur = Math.min(0.24, 0.85 / Math.max(0.5, st.attackRate || 2.2));
-    swingT = 0; swingHit = false; swingYaw = player.yaw; swingDir = -swingDir;
+    swing.send("SWING"); swingT = 0; swingYaw = player.yaw; swingDir = -swingDir;
     atkCd = 1 / (st.attackRate || 2.2);
     if (world.audio) world.audio.play("swing");
   }
 
   function resolveSwing(st) {
-    swingHit = true;
     const dmg = st.damage || 10;
     for (const e of world.enemies) {
       if (e.dead || !inCone(e.x, e.z, player.x, player.z, swingYaw, ATTACK_RADIUS, ATTACK_ARC, e.radius || 0.3)) continue;
@@ -100,7 +118,7 @@ export function createPlayer(world, heroId = "hero-warrior") {
   function update(w, dt, input) {
     const st = w.stats || stats0;
     asset.update(w.time);
-    if (player.dead) { animateDeath(dt); return; }
+    if (player.dead) { act.send("DIE"); animateDeath(dt); return; }
 
     // keep max hp in step with stats (items); gaining max hp also heals that amount
     if (st.maxHp && st.maxHp !== lastMaxHp) {
@@ -123,7 +141,7 @@ export function createPlayer(world, heroId = "hero-warrior") {
     const ax = input.aim ? input.aim.x : 0, ay = input.aim ? input.aim.y : 0;
     const aiming = !!input.aim && ax * ax + ay * ay > 0.0004;
 
-    const busy = dodgeT > 0 || recoverT > 0;
+    const busy = !act.is("free");
 
     // facing: aim if given, else movement. Locked while dodging.
     if (!busy) {
@@ -135,30 +153,30 @@ export function createPlayer(world, heroId = "hero-warrior") {
     if (input.dodge && !busy && player.dodgeCd <= 0) {
       let dx = moving ? wmx : Math.sin(player.yaw), dz = moving ? wmz : Math.cos(player.yaw);
       const l = Math.hypot(dx, dz); dodgeX = dx / l; dodgeZ = dz / l; // l never 0: stick past dead zone, or sin/cos of yaw
-      dodgeT = DODGE_TIME; player.dodging = true;
+      act.send("DODGE"); left = DODGE_TIME;
       player.invuln = Math.max(player.invuln, DODGE_TIME);
       player.dodgeCd = st.dodgeCooldown || 0.8;
-      swingT = -1;
+      swing.send("CANCEL");
       if (w.audio) w.audio.play("dodge");
       if (w.fx) w.fx.burst(player.x, 0.1, player.z, 0xa893b8, 8, 2);
-      setGhost(true); ghost = true;
     }
 
-    if (dodgeT > 0) {
-      const step = Math.min(dt, dodgeT);
+    if (act.is("dodge")) {
+      const step = Math.min(dt, left);
       const k = DODGE_DIST / DODGE_TIME * step;
       player.x += dodgeX * k; player.z += dodgeZ * k;
       resolveCollision(w, player, player.radius);
-      dodgeT -= dt;
+      left -= dt;
       if (w.fx && ((w.time * 60) | 0) % 3 === 0) w.fx.burst(player.x, 0.2, player.z, 0xa893b8, 1, 0.6);
-      if (dodgeT <= 0) { dodgeT = 0; recoverT = DODGE_RECOVER; player.dodging = false; setGhost(false); ghost = false; }
-    } else if (recoverT > 0) {
-      recoverT -= dt;
+      if (left <= 0) { act.send("LAND"); left = DODGE_RECOVER; }
+    } else if (act.is("recover")) {
+      left -= dt;
+      if (left <= 0) act.send("READY");
     } else {
       // movement (slower while the swing is mid-air)
       if (moving) {
         const len = Math.min(1, Math.hypot(mx, my)), l = Math.hypot(wmx, wmz); // never 0: only used past the stick dead zone
-        const sp = (st.moveSpeed || 4.2) * slow * (swingT >= 0 ? 0.8 : 1) * len / l;
+        const sp = (st.moveSpeed || 4.2) * slow * (swing.is("idle") ? 1 : 0.8) * len / l;
         player.x += wmx * sp * dt; player.z += wmz * sp * dt;
         resolveCollision(w, player, player.radius);
         stepT -= dt;
@@ -170,10 +188,10 @@ export function createPlayer(world, heroId = "hero-warrior") {
     }
 
     // swing progress
-    if (swingT >= 0) {
+    if (!swing.is("idle")) {
       swingT += dt / swingDur;
-      if (!swingHit && swingT >= SWING_HIT_AT) resolveSwing(st);
-      if (swingT >= 1) swingT = -1;
+      if (swingT >= SWING_HIT_AT && swing.send("HIT")) resolveSwing(st);
+      if (swingT >= 1) swing.send("END");
     }
     if (lungeT > 0) lungeT -= dt;
 
@@ -187,7 +205,7 @@ export function createPlayer(world, heroId = "hero-warrior") {
     group.rotation.y = visYaw;
 
     let lunge = 0, tilt = 0, roll = 0;
-    if (swingT >= 0) {
+    if (!swing.is("idle")) {
       const u = swingT, e = Math.sin(Math.min(1, u * 1.4) * Math.PI); // quick out, settle back
       lunge = 0.16 * e; tilt = 0.28 * e; roll = swingDir * 0.35 * Math.sin(u * Math.PI);
       // slash wedge sweeps across the arc
@@ -204,7 +222,7 @@ export function createPlayer(world, heroId = "hero-warrior") {
       else {
         bash.visible = true;
         fxRoot.position.set(player.x, 0, player.z);
-        if (swingT < 0) fxRoot.rotation.y = player.yaw;
+        if (swing.is("idle")) fxRoot.rotation.y = player.yaw;
         const s = 0.35 + 0.65 * Math.min(1, bashT * 2.5);
         bash.scale.set(s, 1, s); bash.rotation.y = 0;
         bashMat.opacity = 0.7 * (1 - bashT);
@@ -213,7 +231,7 @@ export function createPlayer(world, heroId = "hero-warrior") {
     body.position.z = lunge;
     body.rotation.x = tilt;
     body.rotation.z = roll;
-    if (dodgeT > 0) body.scale.set(0.9, 0.85, 1.3);
+    if (act.is("dodge")) body.scale.set(0.9, 0.85, 1.3);
     else body.scale.set(1, 1, 1);
 
     // hurt blink (not while dodging, which has its own look)
@@ -224,7 +242,6 @@ export function createPlayer(world, heroId = "hero-warrior") {
   function animateDeath(dt) {
     deadT += dt;
     const u = Math.min(1, deadT / 0.4);
-    if (ghost) { setGhost(false); ghost = false; }
     asset.group.visible = true;
     body.rotation.x = -u * 1.5; body.position.y = -u * 0.1; body.position.z = 0; body.rotation.z = 0; body.scale.set(1, 1, 1);
     slash.visible = false; bash.visible = false;

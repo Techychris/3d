@@ -43,13 +43,13 @@ export function createUI(rootEl) {
   // Top-left: health (+shield) and ability slots. Top-right: floor progress, foes left, embers, pause.
   // Bottom-left: build tags with 2/3 bonus pips. Top-centre: boss bar with phase ticks. Full-screen hurt vignette.
   const hpFill = h("i"), shFill = h("i", { class: "sh" }), hpText = h("b");
-  const hpBar = h("div", { class: "bar hp", role: "meter", "aria-label": "Health", "aria-valuemin": 0 }, hpFill, shFill, hpText);
+  const hpBar = h("div", { class: "bar hp", role: "meter", "aria-label": "Health", "aria-valuemin": 0 }, hpFill, shFill, iconEl("health"), hpText);
   const mkSlot = (label, key, icon) => {
     const f = h("i"), t = h("span", { class: "lbl", text: label }), k = h("kbd", { text: key });
     return { el: h("div", { class: "slot", "aria-label": label + " (" + key + ")" }, f, iconEl(icon), k, t), f, t, label };
   };
   const dodgeSlot = mkSlot("Dodge", "Space", "dodge"), skillSlot = mkSlot("Bash", "L", "bash");
-  const hudTL = h("div", { class: "hud-tl plate", "data-component": "block", "data-name": "Health and abilities" }, hpBar, h("div", { class: "slots" }, dodgeSlot.el, skillSlot.el));
+  const hudTL = h("div", { class: "hud-tl", "data-component": "block", "data-name": "Health and abilities" }, hpBar, h("div", { class: "slots" }, dodgeSlot.el, skillSlot.el));
   const floorText = h("span", { class: "fl" });
   const pips = h("span", { class: "pips", "aria-hidden": "true" });
   const foesText = h("span", { class: "foes" });
@@ -61,14 +61,16 @@ export function createUI(rootEl) {
     if (pauseHandler) pauseHandler();
     else root.dispatchEvent(new CustomEvent("dusk:pause", { bubbles: true }));
   });
+  const mapCv = h("canvas", { class: "minimap", width: 132, height: 99, "aria-label": "Room map" });
   const hudTR = h("div", { class: "hud-tr" },
-    h("div", { class: "plate prog", "data-component": "block", "data-name": "Floor progress" }, h("div", { class: "row1" }, floorText, pips), h("div", { class: "row2" }, foesText, curText, savedChip)), pauseBtn);
+    h("div", { class: "prog", "data-component": "block", "data-name": "Floor progress" }, h("div", { class: "row1" }, floorText, pips), h("div", { class: "row2" }, foesText, curText, savedChip)), mapCv, pauseBtn);
+  const compass = h("div", { class: "compass", "aria-hidden": "true" }, h("b", { text: "N" }), h("i"));
   const hudBL = h("div", { class: "hud-bl tagchips", "aria-label": "Build" });
-  const bossName = h("div", { class: "nm" }), bossFill = h("i");
+  const bossName = h("div", { class: "nm" }), bossFill = h("i"), bossPct = h("span", { class: "pc" });
   const bossBar = h("div", { class: "bar boss", role: "meter", "aria-label": "Boss health" }, bossFill, h("u", { style: "left:33.3%" }), h("u", { style: "left:66.6%" }));
-  const hudTop = h("div", { class: "hud-top plate bossbar", hidden: true }, bossName, bossBar);
+  const hudTop = h("div", { class: "hud-top bossbar", hidden: true }, h("div", { class: "nmrow" }, iconEl("boss"), bossName, bossPct), bossBar);
   const hurt = h("div", { class: "hurt", "aria-hidden": "true" });
-  const hud = h("div", { class: "hud", hidden: true }, hurt, hudTL, hudTR, hudBL, hudTop);
+  const hud = h("div", { class: "hud", hidden: true }, hurt, compass, hudTL, hudTR, hudBL, hudTop);
   root.append(hud);
 
   const last = {};
@@ -86,6 +88,27 @@ export function createUI(rootEl) {
     // touch buttons carry their own cooldown ring
     const tb = touchBtn[touchSel] || (touchBtn[touchSel] = document.querySelector(".dusk-tbtn." + touchSel));
     if (tb) { tb.style.setProperty("--p", frac.toFixed(3)); tb.classList.toggle("cooling", !ready); }
+  }
+
+  const mctx = mapCv.getContext && mapCv.getContext("2d");
+  function drawMap(m) {
+    if (!mctx || !m) return;
+    const g = m.grid, b = m.bounds, W = mapCv.width, H = mapCv.height;
+    const x0 = g ? g.x0 : b.minX, z0 = g ? g.z0 : b.minZ, w = g ? g.w : b.maxX - b.minX, d = g ? g.h : b.maxZ - b.minZ;
+    const k = Math.min((W - 12) / w, (H - 12) / d), ox = (W - w * k) / 2, oy = (H - d * k) / 2;
+    const key = [m.px.toFixed(1), m.pz.toFixed(1), (m.exits || []).length, (m.foes || []).length, w, d].join();
+    if (last.map === key) return;
+    last.map = key;
+    mctx.clearRect(0, 0, W, H);
+    mctx.fillStyle = "rgba(120,100,170,.55)";
+    if (g) { for (let j = 0; j < g.h; j++) for (let i = 0; i < g.w; i++) if (g.walk[j * g.w + i]) mctx.fillRect(ox + i * k, oy + j * k, k + 0.5, k + 0.5); }
+    else mctx.fillRect(ox, oy, w * k, d * k);
+    const at = (x, z) => [ox + (x - x0) * k, oy + (z - z0) * k];
+    mctx.fillStyle = "#b48cff";
+    for (const e of m.exits || []) { const [x, y] = at(e.x, e.z); mctx.fillRect(x - 3, y - 3, 6, 6); }
+    mctx.fillStyle = "#ff6a5a";
+    for (const f of m.foes || []) { const [x, y] = at(f.x, f.z); mctx.fillRect(x - 1.5, y - 1.5, 3, 3); }
+    mctx.fillStyle = "#fff"; const [px, py] = at(m.px, m.pz); mctx.beginPath(); mctx.arc(px, py, 3, 0, 6.3); mctx.fill();
   }
 
   const hudApi = {
@@ -106,6 +129,7 @@ export function createUI(rootEl) {
       hpBar.setAttribute("aria-valuemax", Math.ceil(maxHp));
       hpBar.setAttribute("aria-valuenow", Math.ceil(hp));
       setTxt(curNum, "cur", String(s.currency | 0));
+      drawMap(s.map);
       // floor progress: one pip per room, boss last
       const rooms = s.rooms || 0, room = s.room || 0, isBoss = rooms && room >= rooms - 1;
       const path = s.path || [];
@@ -140,6 +164,7 @@ export function createUI(rootEl) {
       hudTop.hidden = !b;
       if (b) {
         setTxt(bossName, "bn", b.name);
+        setTxt(bossPct, "bp", Math.ceil(pct(b.hp, b.maxHp)) + "%");
         bossFill.style.width = pct(b.hp, b.maxHp) + "%";
         bossBar.setAttribute("aria-valuenow", Math.ceil(b.hp));
         bossBar.setAttribute("aria-valuemax", Math.ceil(b.maxHp));

@@ -153,3 +153,23 @@ createAudio() -> audio = { play(name), setVolume(kind:"sfx"|"music", v), unlock(
 
 ## What main.js (owner: integrator) does
 Creates renderer/scene/camera/post-effects/quality presets, the world, input, audio, UI, fx; runs `renderer.setAnimationLoop`; runs the state machine hub → rooms → shrine → boss → recap; autosaves at each room start; computes `world.stats` via `computeStats`; sets player.shield at room start; detects room clear and exit; handles pause and the portrait prompt.
+
+## State machines
+
+State that moves through named stages lives in an explicit table (`src/core/fsm.js`), not in flags or sentinel timers.
+A table lists every state and the events it accepts; a move that is not listed cannot happen.
+
+| Table | Where | States |
+| --- | --- | --- |
+| `GAME_FLOW` | `game/flow.js`, run by `main.js` | boot, hub, run, dying, shrine, paused, recap |
+| `ROOM_FLOW` | `game/flow.js`, one machine per room | fight, clear |
+| `PLAYER_FLOW` | `game/player.js` | free, dodge, recover, dead |
+| `SWING_FLOW` | `game/player.js` | idle, windup, follow |
+| `ENEMY_FLOW` | `game/enemies.js` (`e.state`) | idle, aggro, windup, attack, recover |
+| `BOSS_FLOW` | `game/bosses.js` (`e.state`) | aggro, attack |
+| `TELEGRAPH_FLOW` | `game/combat.js` (`t.state`) | windup, fade, done, cancelled |
+
+Rules: never assign a state; use `machine.send(EVENT)` (returns false if refused, so it doubles as a guard for
+button clicks) or `transition(table, obj, EVENT)` (throws on an illegal move). Derived facts (`player.dodging`,
+`telegraph.dead`, `telegraph.resolved`) are getters over the state. `tests/unit/fsm.test.mjs` checks every table
+for unreachable states.

@@ -22,6 +22,7 @@ before(async () => {
   dom = await installDom();
   doc = dom.window.document;
   win = dom.window;
+  win.HTMLCanvasElement.prototype.getContext = () => null; // jsdom has no canvas; the minimap then no-ops
 });
 after(() => dom.cleanup());
 
@@ -74,6 +75,34 @@ describe("createUI setup", () => {
     assert.deepEqual(takes, []);
     assert.equal(qa(".card")[0].classList.contains("sel"), true);
   });
+});
+
+describe("HUD minimap", () => {
+  const fakeCtx = () => { const calls = []; return { calls, ctx: new Proxy({}, { get: (t, k) => (k in t ? t[k] : (...a) => calls.push([k, ...a])), set: (t, k, v) => { t[k] = v; return true; } }) }; };
+  const withCtx = (fn) => {
+    const { calls, ctx } = fakeCtx(), proto = win.HTMLCanvasElement.prototype, old = proto.getContext;
+    proto.getContext = () => ctx;
+    try { const el = doc.createElement("div"); doc.body.append(el); fn(createUI(el), calls); el.remove(); } finally { proto.getContext = old; }
+  };
+  it("draws a grid room with exits, foes and the player, and skips redraws when nothing moved", () => {
+    withCtx((u, calls) => {
+      const map = { grid: { x0: -1, z0: -1, w: 2, h: 2, walk: new Uint8Array([1, 0, 1, 1]) }, bounds: null, px: 0, pz: 0, exits: [{ x: 0.5, z: -0.5 }], foes: [{ x: 0.2, z: 0.2 }] };
+      u.hud.update({ hp: 1, maxHp: 1, map });
+      assert.ok(calls.some((c) => c[0] === "arc"));
+      assert.equal(calls.filter((c) => c[0] === "fillRect").length, 3 + 1 + 1);
+      const n = calls.length;
+      u.hud.update({ hp: 1, maxHp: 1, map });
+      assert.equal(calls.length, n);
+    });
+  });
+  it("draws a gridless room from its bounds, with no exits or foes listed", () => {
+    withCtx((u, calls) => {
+      u.hud.update({ hp: 1, maxHp: 1, map: { grid: null, bounds: { minX: -5, maxX: 5, minZ: -4, maxZ: 4 }, px: 1, pz: 1 } });
+      assert.equal(calls.filter((c) => c[0] === "fillRect").length, 1);
+    });
+  });
+  it("ignores a missing map", () => { withCtx((u, calls) => { u.hud.update({ hp: 1, maxHp: 1 }); assert.equal(calls.length, 0); }); });
+  it("is a no-op without a canvas context", () => { ui.hud.update({ hp: 1, maxHp: 1, map: { grid: null, bounds: { minX: 0, maxX: 1, minZ: 0, maxZ: 1 }, px: 0, pz: 0 } }); });
 });
 
 describe("HUD", () => {

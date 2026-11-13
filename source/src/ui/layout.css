@@ -53,3 +53,22 @@
  .dusk-ui .shrine .head{padding:var(--space-8) var(--space-20)!important}
  .dusk-ui .card{min-height:0}
 }
+/* HUD v3: frameless, after the reference shots */
+.dusk-ui .hud-tl,.dusk-ui .hud-tr .prog{background:none;border:0;padding:0;text-shadow:0 1px 3px #0009,0 0 8px #0007}
+.dusk-ui .hud-tl .bar.hp{height:7px;margin-top:24px;overflow:visible;border-radius:4px}
+.dusk-ui .hud-tl .bar.hp b{inset:auto;left:28px;top:-24px;text-align:left;font-size:1rem;line-height:20px}
+.dusk-ui .hud-tl .bar.hp .ico{position:absolute;left:0;top:-26px;width:22px;height:22px;color:var(--danger)}
+.dusk-ui .hud-tl .slots .slot{height:22px;font-size:.75rem}
+.dusk-ui .hud-tr{align-items:flex-start}
+.dusk-ui .hud-tr .prog{align-items:flex-end;min-height:0}
+.dusk-ui .minimap{width:132px;height:99px;border-radius:var(--radius-md);background:#1c1530b8;border:1px solid var(--line)}
+.dusk-ui .compass{position:absolute;top:max(8px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);width:min(420px,30vw);text-align:center;font-size:.75rem;font-weight:700;color:var(--text);opacity:.85}
+.dusk-ui .compass i{display:block;height:1px;margin-top:4px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+.dusk-ui .hud-top.bossbar{top:calc(max(8px,env(safe-area-inset-top)) + 28px);background:none;border:0;padding:0;width:min(300px,34vw);min-width:180px}
+.dusk-ui .bossbar .nmrow{display:flex;align-items:center;gap:var(--space-8);justify-content:center;text-shadow:0 1px 3px #000a}
+.dusk-ui .bossbar .nmrow .ico{width:16px;height:16px;color:var(--danger)}
+.dusk-ui .bossbar .nm{margin:0;font-family:inherit;font-size:.8125rem;font-weight:600}
+.dusk-ui .bossbar .pc{font-size:.75rem;color:var(--muted);margin-left:auto}
+.dusk-ui .bar.boss{height:5px;border-radius:3px}
+@media (max-width:1000px){.dusk-ui .hud-top.bossbar{top:calc(max(8px,env(safe-area-inset-top)) + 28px);width:min(260px,40vw)}.dusk-ui .minimap{width:96px;height:72px}}
+.dusk-ui .hud-tr .prog,.dusk-ui .hud-tr .prog .foes{color:var(--text);text-shadow:0 1px 2px #000c,0 0 6px #000a,0 0 12px #0008}

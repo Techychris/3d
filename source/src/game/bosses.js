@@ -1,5 +1,6 @@
 // Module B: bosses. Three bosses, 3 phases (66% / 33% hp), every attack telegraphed >= 0.6 s (we use 0.8-1.0 s).
 import { yawOf, clamp } from "./world.js";
+import { checkTable, transition } from "../core/fsm.js";
 import {
   createActor, createEnemy, tele, killTelegraphs, shoot, aimLine, say, turn, walk, lerp, clampInside,
 } from "./enemies.js";
@@ -57,6 +58,14 @@ function runAction(a, e, w, dt) {
 }
 const at = (t, fn) => ({ at: t, fn, done: false });
 
+// The whole boss machine. "aggro": between attacks (moves, counts e.gap down). "attack": e.action is running.
+// e.action is non-null exactly while the state is "attack".
+export const BOSS_FLOW = checkTable({
+  aggro: { ATTACK: "attack" },
+  attack: { DONE: "aggro", INTERRUPT: "aggro" },   // a stun or freeze interrupts the attack, like regular enemies
+});
+function endAttack(e, ev) { transition(BOSS_FLOW, e, ev); e.action = null; e.gap = e.def.gap[e.phase - 1]; }
+
 function bossBrain(e, w, dt) {
   const p = w.player;
   e.sx = 1; e.sy = 1; e.pitch = 0;
@@ -73,22 +82,17 @@ function bossBrain(e, w, dt) {
   const dx = p.x - e.x, dz = p.z - e.z, d = Math.hypot(dx, dz) || 0.0001;
   const ux = dx / d, uz = dz / d;
   const helpless = e.status.stunT > 0 || e.status.frozenT > 0;
-  if (e.action && helpless) {
-    // a stun or freeze interrupts the queued attack, like regular enemies (bosses get half-length stuns)
-    killTelegraphs(e); e.action = null; e.gap = e.def.gap[e.phase - 1];
-    return;
-  }
-  if (e.action) {
-    if (runAction(e.action, e, w, dt)) { e.action = null; e.gap = e.def.gap[e.phase - 1]; }
-  } else {
-    if (helpless) return;
+  if (e.state === "attack") {
+    if (helpless) { killTelegraphs(e); endAttack(e, "INTERRUPT"); } // bosses get half-length stuns
+    else if (runAction(e.action, e, w, dt)) endAttack(e, "DONE");
+  } else if (!helpless) {
     e.gap -= dt;
     turn(e, yawOf(dx, dz), 3 * dt);
     if (e.speedMul > 0.01) e.def.move(e, w, dt, d, ux, uz);
     if (e.gap <= 0) {
-      const a = e.next || e.def.pick(e, w, d);
+      e.action = e.next || e.def.pick(e, w, d);
       e.next = null;
-      e.action = a;
+      transition(BOSS_FLOW, e, "ATTACK");
       e.aim = yawOf(ux, uz); e.yaw = e.aim;
     }
   }

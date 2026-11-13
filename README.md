@@ -8,6 +8,11 @@ Browser game built with three.js r187. Fight through 3 floors of floating-island
 - Desktop: WASD to move, mouse to aim, J or left click to attack, Space or K to dodge, L to bash, Esc to pause.
 - Phone: play in landscape, with an on-screen stick and buttons.
 
+## What's in v1.2.1
+- Restored two things the v1.2 build had dropped: the frameless HUD with minimap, and room dressing (banners, battlements, glowing guide lines, waterfalls).
+- State that moves through stages now lives in explicit tables (`source/src/core/fsm.js`): game flow, room, player, sword swing, enemies, bosses, telegraphs. See "State machines" in `source/CONTRACT.md`.
+- The death pause runs on the game clock, and the hero now falls over when defeated.
+
 ## What's in v1.2
 - 14 new props (74 assets in total): dusk tree, lantern post, crates, glowcap mushrooms, sarcophagus, burial urns, bone pile, crystal cluster, rune stone, telescope, well, banner, signpost, anvil. See `screenshots/new-props-v1.2.png`.
 - Each floor now draws from 6 or 7 props instead of 3, so rooms repeat less: ruins get trees, lanterns, crates and mushrooms; the crypt gets sarcophagi, urns and bones; the spire gets crystals, rune stones, telescopes and bookshelves.

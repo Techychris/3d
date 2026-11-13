@@ -6,6 +6,8 @@ import { createBackdrop } from "./engine/backdrop.js";
 import { createAudio } from "./engine/audio.js";
 import { createWorld, clearRoom, dist } from "./game/world.js";
 import { createRng, dailySeed } from "./core/rng.js";
+import { createMachine } from "./core/fsm.js";
+import { GAME_FLOW, ROOM_FLOW } from "./game/flow.js";
 import { createPlayer } from "./game/player.js";
 import { spawnProjectile } from "./game/combat.js";
 import { createFx } from "./game/fx.js";
@@ -39,10 +41,20 @@ const audio = createAudio();
 world.audio = audio;
 world.fx = createFx(world);
 const ui = createUI(document.getElementById("ui"));
-window.__game = { world, get state() { return state; }, get run() { return run; }, get meta() { return meta; } }; // test hook
+window.__game = { world, get state() { return flow.state; }, get run() { return run; }, get meta() { return meta; } }; // test hook
 
 let meta = P.loadMeta();
-let run = null, room = null, state = "boot", cleared = false, exitLock = 0, hinted = -1;
+// The game's top-level machine: every screen the game can be on and every way to move between them.
+// Nothing assigns the state; code asks for a move with flow.send(EVENT), which refuses moves that are not listed.
+const flow = createMachine(GAME_FLOW, "boot");
+// For moves the game makes itself: an illegal one is a bug, so fail loudly. (Moves asked for by a button use
+// flow.send as a guard instead, so a stale or doubled click is ignored.)
+function go(ev) { if (!flow.send(ev)) throw new Error(`flow: ${ev} is not legal in "${flow.state}"`); }
+// Each room gets a fresh ROOM_FLOW machine: "fight" until no foes are left, then "clear".
+const EXIT_LOCK = 0.6, DEATH_TIME = 0.9;
+let roomFlow = createMachine(ROOM_FLOW, "fight"), roomAge = 0;
+const inBossRoom = () => run.room >= ROOMS_PER_FLOOR;
+let run = null, room = null, hinted = -1;
 let runEmbers = 0, killerName = null, summons = [];
 const isTouch = matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
 
@@ -68,10 +80,11 @@ function hudUpdate() {
     hp: Math.max(0, Math.round(p.hp)), maxHp: Math.round(world.stats.maxHp), shield: Math.round(p.shield || 0),
     tags: tagCounts(run ? run.items : []), currency: meta.currency, floor: run ? run.floor : 0,
     room: run ? Math.min(run.room, ROOMS_PER_FLOOR) : 0, rooms: ROOMS_PER_FLOOR + 1,
-    path: run ? (run.path || []).concat(run.room >= ROOMS_PER_FLOOR ? [] : [run.roomType || "combat"]) : null,
+    path: run ? (run.path || []).concat(inBossRoom() ? [] : [run.roomType || "combat"]) : null,
     exitCount: room && room.exits ? room.exits.length : 1, saved: savedFlash > 0, boss: boss ? { name: boss.name, hp: Math.max(0, boss.hp), maxHp: boss.maxHp } : null,
     skillCd: p.skillCd || 0, skillMax: p.skillMax || 7, dodgeCd: p.dodgeCd || 0, dodgeMax: p.dodgeMax || world.stats.dodgeCooldown,
-    foes: state === "run" || state === "dying" ? world.enemies.filter(e => !e.dead).length : null, touch: input.isTouchVisible ? input.isTouchVisible() : false,
+    map: world.player ? { grid: world.grid, bounds: world.bounds, px: world.player.x, pz: world.player.z, exits: room && flow.is("run") && !world.enemies.some(e => !e.dead) ? (room.exits || []) : [], foes: world.enemies.filter(e => !e.dead) } : null,
+    foes: flow.is("run", "dying") ? world.enemies.filter(e => !e.dead).length : null, touch: input.isTouchVisible ? input.isTouchVisible() : false,
   });
 }
 let savedFlash = 0;
@@ -92,7 +105,8 @@ function spawnPlayer(pos) {
 
 // ---------------- hub ----------------
 function enterHub() {
-  state = "hub"; disposeRoom(); run = P.loadRun();
+  if (!flow.send("HUB")) return;
+  disposeRoom(); run = P.loadRun();
   setStats();
   room = buildHub(world);
   R.addLampsFrom(room.group);
@@ -121,6 +135,7 @@ function showHubPanel() {
 
 // ---------------- run ----------------
 function startRun(seed, daily = false) {
+  if (!flow.send("START")) return;
   audio.unlock();
   const existing = P.loadRun();
   if (existing && !seed) run = existing;
@@ -134,7 +149,7 @@ function enterRoom() {
   disposeRoom();
   ui.hideAll(); ui.hud.show(true);
   setStats();
-  const boss = run.room >= ROOMS_PER_FLOOR;
+  const boss = inBossRoom();
   const type = boss ? "boss" : (run.roomType || "combat");
   const exits = exitChoices(run.seed, run.floor, run.room, ROOMS_PER_FLOOR, type);
   world.rng = createRng(`${run.seed}:${run.floor}:${run.room}`);
@@ -164,8 +179,7 @@ function enterRoom() {
     else if (type === "treasure") ui.toast("Treasure room: clear the guards to open the chest");
   }
   for (let i = 0; i < (world.stats.summons || 0); i++) summons.push(makeSummon(i));
-  cleared = false; exitLock = 0.6; hinted = -1;
-  state = "run";
+  roomFlow = createMachine(ROOM_FLOW, "fight"); roomAge = 0; hinted = -1;
   audio.startMusic(type === "rest" ? "hub" : "combat");
   save();
 }
@@ -198,11 +212,10 @@ function updateSummons(dt) {
 }
 
 function onRoomClear() {
-  cleared = true;
   world.events.emit("room:clear", {});
   for (const e of room.exits) e.setOpen(true);
   audio.play("door");
-  const type = run.room >= ROOMS_PER_FLOOR ? "boss" : run.roomType;
+  const type = inBossRoom() ? "boss" : run.roomType;
   if (type === "elite") world.events.emit("currency", { amount: 20 });
   if (type === "treasure") {
     world.events.emit("currency", { amount: 30 });
@@ -216,9 +229,9 @@ function onRoomClear() {
 
 function onExit(i) {
   run.hp = world.player.hp;
-  const wasBoss = run.room >= ROOMS_PER_FLOOR;
-  if (wasBoss) {
+  if (inBossRoom()) {
     if (run.floor >= FLOORS_PER_RUN) return endRun(true);
+    go("ADVANCE");
     run.floor += 1; run.room = 0; run.roomType = "combat"; run.path = [];
     run.hp = Math.min(world.stats.maxHp, run.hp + world.stats.maxHp * 0.3); // breather between floors
     return enterRoom();
@@ -227,18 +240,19 @@ function onExit(i) {
   run.path = (run.path || []).concat(run.roomType || "combat");
   const fromType = run.roomType;
   run.roomType = ROOM_TYPES[chosen] && chosen !== "boss" ? chosen : "combat";
-  if (fromType === "rest") return nextRoom();
+  if (fromType === "rest") { go("ADVANCE"); return nextRoom(); }
   openShrine(false, fromType === "elite");
 }
 
 function openShrine(rerolled = false, freeReroll = false) {
-  state = "shrine";
+  go(rerolled ? "REROLL" : "SHRINE");
   const ids = rollShrine(world.rng, run.items, 3);
   const cards = ids.map(id => describeCard(id, run.items));
   ids.forEach(id => { if (!meta.codex.includes(id)) meta.codex.push(id); });
   ui.showShrine(cards, {
     rerollCost: freeReroll ? 0 : REROLL_COST, canReroll: !rerolled && (freeReroll || meta.currency >= REROLL_COST),
     onTake: (id) => {
+      if (!flow.send("CHOSEN")) return;
       run.items.push(id);
       const it = ITEMS.find(i => i.id === id);
       world.events.emit("item:taken", { item: it });
@@ -246,13 +260,13 @@ function openShrine(rerolled = false, freeReroll = false) {
       nextRoom();
     },
     onReroll: () => { if (rerolled) return; if (freeReroll) { audio.play("coin"); return openShrine(true); } if (meta.currency >= REROLL_COST) { meta.currency -= REROLL_COST; audio.play("coin"); openShrine(true); } },
-    onSkip: () => { meta.currency += SKIP_REWARD; runEmbers += SKIP_REWARD; audio.play("coin"); nextRoom(); },
+    onSkip: () => { if (!flow.send("CHOSEN")) return; meta.currency += SKIP_REWARD; runEmbers += SKIP_REWARD; audio.play("coin"); nextRoom(); },
   });
 }
 function nextRoom() { run.room += 1; run.embers = runEmbers; enterRoom(); }
 
 function endRun(won) {
-  state = "recap";
+  go(won ? "WIN" : "LOSE");
   const p = world.player;
   const itemsLost = won ? [] : run.items.map(id => (ITEMS.find(i => i.id === id) || {}).name).filter(Boolean);
   const endingsNew = [];
@@ -277,15 +291,15 @@ function endRun(won) {
 // ---------------- events ----------------
 world.events.on("player:hit", ({ amount }) => { if (run && amount > 0) { run.hitsTaken = (run.hitsTaken || 0) + 1; ui.hud.hurt(Math.min(1, amount / 20)); } });
 world.events.on("currency", ({ amount }) => { meta.currency += amount; runEmbers += amount; audio.play("coin"); });
-world.events.on("player:death", ({ killer }) => { killerName = killer; if (state !== "run") return; state = "dying"; setTimeout(() => { if (state === "dying") endRun(false); }, 900); });
+world.events.on("player:death", ({ killer }) => { killerName = killer; flow.send("DIE"); }); // frame() ends the run after DEATH_TIME
 
 // ---------------- pause / settings ----------------
-function pause() {
-  if (state !== "run") return;
-  state = "paused";
-  ui.showPause({ onResume: resume, onSettings: () => openSettings(() => { state = "run"; pause(); }), onQuit: () => { save(); state = "hub"; enterHub(); } });
+function pause() { if (flow.send("PAUSE")) showPausePanel(); }
+function showPausePanel() {
+  ui.showPause({ onResume: resume, onSettings: () => openSettings(showPausePanel), onQuit: () => { if (flow.is("paused")) { save(); enterHub(); } } });
 }
-function resume() { ui.hideAll(); ui.hud.show(true); state = "run"; }
+function resume() { if (flow.send("RESUME")) { ui.hideAll(); ui.hud.show(true); } }
+const togglePause = () => (flow.is("paused") ? resume() : pause());
 function openSettings(back) {
   ui.showSettings(meta.settings, {
     onChange: (k, v) => { meta.settings[k] = v; if (k === "quality" && v === "auto") autoQ.reset(); applySettings(); P.saveMeta(meta); },
@@ -297,8 +311,8 @@ function openSettings(back) {
     onClose: back,
   });
 }
-ui.hud.onPause(() => (state === "paused" ? resume() : pause()));
-document.addEventListener("visibilitychange", () => { if (document.hidden) { if (state === "run") pause(); save(); } });
+ui.hud.onPause(togglePause);
+document.addEventListener("visibilitychange", () => { if (document.hidden) { pause(); save(); } });
 
 // ---------------- quality auto-preset ----------------
 const autoQ = {
@@ -330,7 +344,7 @@ function botDrive(st) {
   botT += 1;
   let tx = 0, tz = 0, want = 1.1;
   const foe = world.enemies.filter(e => !e.dead).sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z))[0];
-  if (foe) { tx = foe.x; tz = foe.z; } else if (cleared && room) { tx = room.exit.x; tz = room.exit.z; want = 0; }
+  if (foe) { tx = foe.x; tz = foe.z; } else if (roomFlow.is("clear") && room) { tx = room.exit.x; tz = room.exit.z; want = 0; }
   const dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz) || 1;
   const toScreen = (x, z) => { const sx = x - z, sy = -(x + z), n = Math.hypot(sx, sy) || 1; return { x: sx / n, y: sy / n }; };
   // walk the grid around pits, stubs and props: steer at the next cell of a breadth-first path
@@ -373,19 +387,19 @@ function frame() {
   let dt = Math.min(timer.getDelta(), 0.05);
   const minFrame = 1 / R.maxFps; acc += dt; if (acc < minFrame * 0.95) return; dt = acc; acc = 0; dt = Math.min(dt, 0.05);
   input.update();
-  if (BOT && state === "run") botDrive(input.state);
-  if (input.pausePressed()) { if (state === "run") pause(); else if (state === "paused") resume(); }
+  flow.tick(dt);
+  if (BOT && flow.is("run")) botDrive(input.state);
+  if (input.pausePressed()) togglePause();
   const portrait = isTouch && innerHeight > innerWidth;
   ui.showRotate(portrait);
-  if (portrait && state === "run") pause();
+  if (portrait) pause();
 
-  const simulate = state === "run" || state === "dying" || state === "hub";
   let sdt = dt;
   if (hitStopT > 0) { hitStopT -= dt; sdt = 0; }
-  if (simulate && state !== "hub") {
+  if (flow.is("run", "dying")) {
     world.dt = sdt; world.time += sdt;
     const p = world.player;
-    if (p && !p.dead) p.update(world, sdt, input.state);
+    if (p) p.update(world, sdt, input.state); // a dead player still updates: it plays its fall
     for (const list of [world.enemies, world.projectiles, world.telegraphs, world.hazards, world.pickups]) {
       for (const e of list) if (!e.dead) e.update(world, sdt);
       for (let i = list.length - 1; i >= 0; i--) if (list[i].dead) { list[i].dispose(world); list.splice(i, 1); }
@@ -393,19 +407,19 @@ function frame() {
     updateSummons(sdt);
     if (room) room.update(world, sdt);
     world.fx.update(world, sdt);
-    if (state === "run") {
-      if (!cleared && world.enemies.length === 0) onRoomClear();
-      exitLock -= sdt;
-      if (cleared && p) {
+    if (flow.is("run")) {
+      if (world.enemies.length === 0 && roomFlow.send("CLEAR")) onRoomClear();
+      roomAge += sdt;
+      if (roomFlow.is("clear") && p) {
         for (let i = 0; i < room.exits.length; i++) {
           const ex = room.exits[i], d = Math.hypot(p.x - ex.x, p.z - ex.z);
-          if (exitLock <= 0 && d < 0.9) { onExit(i); break; }
+          if (roomAge >= EXIT_LOCK && d < 0.9) { onExit(i); break; }
           if (d < 2.4 && hinted !== i && room.exits.length > 1) { hinted = i; const T = ROOM_TYPES[ex.type]; if (T) ui.toast(`${T.label}: ${T.hint}`); }
         }
       }
-    }
+    } else if (flow.time >= DEATH_TIME) endRun(false);
     autoQ.tick(dt);
-  } else if (state === "hub") {
+  } else if (flow.is("hub")) {
     world.dt = dt; world.time += dt;
     if (room) room.update(world, dt);
     if (world.player) { world.player.group.rotation.y = Math.sin(world.time * 0.4) * 0.3 + 0.8; world.player.group.position.set(world.player.x, 0, world.player.z); }

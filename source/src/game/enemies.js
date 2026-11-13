@@ -3,6 +3,7 @@
 import { makeAsset } from "../engine/assets.js";
 import { yawOf, resolveCollision, clamp } from "./world.js";
 import { spawnTelegraph, spawnProjectile, damagePlayer, tickStatus } from "./combat.js";
+import { checkTable, transition } from "../core/fsm.js";
 
 export { createBoss } from "./bosses.js";
 
@@ -163,7 +164,15 @@ function disposeActor(e, w) {
 }
 
 // ---------------------------------------------------------------- regular enemy state machine
-// idle -> aggro -> windup (the tell) -> attack -> recover -> aggro
+// The whole machine: every state a regular enemy can be in and every move it can make. e.t is seconds in the state.
+export const ENEMY_FLOW = checkTable({
+  idle: { NOTICE: "aggro" },                           // waits until the player is near or it is hurt
+  aggro: { WINDUP: "windup" },                         // approaches; attacks when off cooldown and in range
+  windup: { STRIKE: "attack", INTERRUPT: "recover" },  // the tell; a stun or freeze cancels it with no damage
+  attack: { END: "recover" },
+  recover: { READY: "aggro" },
+});
+function go(e, ev) { transition(ENEMY_FLOW, e, ev); e.t = 0; }
 function regularBrain(e, w, dt) {
   const D = e.def, p = w.player;
   e.sx = 1; e.sy = 1; e.pitch = 0;
@@ -173,7 +182,7 @@ function regularBrain(e, w, dt) {
   e.t += dt;
   switch (e.state) {
     case "idle":
-      if (d < AGGRO || e.hp < e.maxHp) { e.state = "aggro"; e.t = 0; e.cd = D.first !== undefined ? D.first : 0.5 + w.rng() * 0.5; }
+      if (d < AGGRO || e.hp < e.maxHp) { go(e, "NOTICE"); e.cd = D.first !== undefined ? D.first : 0.5 + w.rng() * 0.5; }
       break;
     case "aggro":
       turn(e, yawOf(dx, dz), 7 * dt);
@@ -181,7 +190,7 @@ function regularBrain(e, w, dt) {
       if (e.speedMul > 0.01) {
         if (D.move) D.move(e, w, dt, d, ux, uz);
         if (e.cd <= 0 && D.canAttack(e, d)) {
-          e.state = "windup"; e.t = 0; e.wu = D.windup;
+          go(e, "WINDUP"); e.wu = D.windup;
           e.aim = yawOf(ux, uz); e.yaw = e.aim; e.aimX = p.x; e.aimZ = p.z;
           D.start(e, w, d, ux, uz);
         }
@@ -193,7 +202,7 @@ function regularBrain(e, w, dt) {
       e.noSep = !!D.noSepWindup;
       if (D.windupTick) D.windupTick(e, w, dt, k);
       if (e.t >= e.wu) {
-        e.state = "attack"; e.t = 0;
+        go(e, "STRIKE");
         if (D.attack) D.attack(e, w);
       }
       break;
@@ -201,14 +210,14 @@ function regularBrain(e, w, dt) {
     case "attack": {
       const hold = D.hold === undefined ? 0.12 : D.hold;
       if (D.attackTick) D.attackTick(e, w, dt, clamp(e.t / hold, 0, 1));
-      if (e.t >= hold) { e.state = "recover"; e.t = 0; e.noSep = false; if (D.endAttack) D.endAttack(e, w); }
+      if (e.t >= hold) { go(e, "END"); e.noSep = false; if (D.endAttack) D.endAttack(e, w); }
       break;
     }
     case "recover":
       if (e.speedMul <= 0.01) e.t -= dt;      // frozen / stunned: stay helpless
       if (D.recoverTick) D.recoverTick(e, w, dt, d, ux, uz);
       if (e.t >= D.recover) {
-        e.state = "aggro"; e.t = 0; e.guard = D.guard === true;
+        go(e, "READY"); e.guard = D.guard === true;
         e.cd = D.cd * (0.75 + w.rng() * 0.5);
       }
       break;
@@ -219,7 +228,7 @@ function cancel(e) {
   killTelegraphs(e);
   if (e.def.cancel) e.def.cancel(e);
   e.y = 0; e.group.visible = true; e.noSep = false;
-  e.state = "recover"; e.t = 0;
+  go(e, "INTERRUPT");
 }
 
 // Shared small moves
