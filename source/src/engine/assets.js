@@ -128,7 +128,7 @@ export function makeAsset(id) {
   const mod = ASSETS[id];
   if (!mod) throw new Error(`unknown asset ${id}`);
   const group = restyle(mod.build(THREE));
-  return { group, meta: mod.meta, update: (t) => { if (mod.update) mod.update(group, t); } };
+  return { group, meta: mod.meta, update: (t, pose) => { if (mod.update) mod.update(group, t, pose); } };
 }
 
 // Flash every mesh of a group to a colour for a short time (hit flash). Returns a function to call each frame.

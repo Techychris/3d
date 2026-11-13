@@ -66,6 +66,13 @@ export const BOSS_FLOW = checkTable({
 });
 function endAttack(e, ev) { transition(BOSS_FLOW, e, ev); e.action = null; e.gap = e.def.gap[e.phase - 1]; }
 
+// What the model plays: the first 60% of each attack is its windup, the rest the strike. Between attacks it idles.
+function bossPose(e) {
+  const c = e.action && e.action.cur, p = c ? Math.min(1, c.t / c.dur) : 0;
+  e.act = !e.action ? "idle" : p < 0.6 ? "windup" : "attack";
+  e.k = p < 0.6 ? p / 0.6 : (p - 0.6) / 0.4;
+}
+
 function bossBrain(e, w, dt) {
   const p = w.player;
   e.sx = 1; e.sy = 1; e.pitch = 0;
@@ -85,6 +92,7 @@ function bossBrain(e, w, dt) {
   if (e.state === "attack") {
     if (helpless) { killTelegraphs(e); endAttack(e, "INTERRUPT"); } // bosses get half-length stuns
     else if (runAction(e.action, e, w, dt)) endAttack(e, "DONE");
+    bossPose(e);
   } else if (!helpless) {
     e.gap -= dt;
     turn(e, yawOf(dx, dz), 3 * dt);

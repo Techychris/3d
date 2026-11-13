@@ -67,6 +67,7 @@ export function createPlayer(world, heroId = "hero-warrior") {
   const act = createMachine(PLAYER_FLOW, "free", (next, prev) => { if ((next === "dodge") !== (prev === "dodge")) setGhost(next === "dodge"); });
   const swing = createMachine(SWING_FLOW, "idle");
   let swingT = 0, swingDur = 0.2, swingYaw = 0, swingDir = 1; // swingT: 0..1 through the swing
+  const pose = { move: 0, act: "idle", k: 0 }; let walk = 0;
   let left = 0, dodgeX = 0, dodgeZ = 1;                        // left: seconds left in "dodge" / "recover"
   let lungeT = 0, bashT = -1, deadT = 0, stepT = 0, wasHurtBlink = false;
   let lastMaxHp = maxHp;
@@ -117,8 +118,7 @@ export function createPlayer(world, heroId = "hero-warrior") {
 
   function update(w, dt, input) {
     const st = w.stats || stats0;
-    asset.update(w.time);
-    if (player.dead) { act.send("DIE"); animateDeath(dt); return; }
+    if (player.dead) { act.send("DIE"); asset.update(w.time); animateDeath(dt); return; }
 
     // keep max hp in step with stats (items); gaining max hp also heals that amount
     if (st.maxHp && st.maxHp !== lastMaxHp) {
@@ -194,6 +194,13 @@ export function createPlayer(world, heroId = "hero-warrior") {
       if (swingT >= 1) swing.send("END");
     }
     if (lungeT > 0) lungeT -= dt;
+
+    // what the model plays: how fast it walks, and its act (the swing's "follow" is the model's "attack")
+    walk += ((moving && act.is("free") ? Math.min(1, Math.hypot(mx, my)) : 0) - walk) * Math.min(1, dt * 14);
+    pose.move = walk;
+    pose.act = act.is("dodge") ? "dodge" : bashT >= 0 ? "bash" : swing.is("follow") ? "attack" : swing.state;
+    pose.k = act.is("dodge") ? 1 : bashT >= 0 ? Math.sin(Math.min(1, bashT) * Math.PI) : swing.is("windup") ? swingT / SWING_HIT_AT : (swingT - SWING_HIT_AT) / (1 - SWING_HIT_AT);
+    asset.update(w.time, pose);
 
     animate(dt, st);
   }

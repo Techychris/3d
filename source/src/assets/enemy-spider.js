@@ -1,3 +1,5 @@
+import { accents } from "../engine/rig.js";
+
 export const meta = {
   id: "enemy-spider",
   name: "Giant cave spider",
@@ -58,11 +60,15 @@ export function build(THREE) {
   return g;
 }
 
-export function update(group, t) {
+// pose: legs scuttle while it moves and pull in tight before the leap
+export function update(group, t, pose) {
   const legs = group.userData.legs;
   if (!legs) return;
+  const { wind, hit, move } = accents(pose);
   for (let i = 0; i < legs.length; i++) {
     const L = legs[i];
-    L.obj.rotation.y = L.base + Math.sin(t * 7 + L.phase) * 0.04;
+    L.obj.rotation.y = L.base + Math.sin(t * (7 + 10 * move) + L.phase) * (0.04 + 0.22 * move);
+    L.obj.scale.setScalar(1 - 0.25 * wind + 0.15 * hit);
+    L.obj.position.y = Math.max(0, Math.sin(t * 17 + L.phase * 3)) * 0.05 * move;
   }
 }

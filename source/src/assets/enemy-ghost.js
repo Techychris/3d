@@ -1,3 +1,5 @@
+import { accents } from "../engine/rig.js";
+
 export const meta = {
   id: "enemy-ghost",
   name: "Ghost",
@@ -82,7 +84,9 @@ export function build(THREE) {
   return g;
 }
 
-export function update(group, t) {
+// pose: it stretches tall as it gathers itself to vanish
+export function update(group, t, pose) {
+  const { wind, hit } = accents(pose);
   const bob = BOB_AMP * Math.sin(t * BOB_SPEED);
   const sway = SWAY_AMP * Math.sin(t * SWAY_SPEED);
   const body = group.userData.body;
@@ -91,6 +95,7 @@ export function update(group, t) {
   // Rotate about the hem point so the drop line stays attached to it.
   const c = Math.cos(sway), sn = Math.sin(sway);
   body.rotation.z = sway;
+  body.scale.set(1 - 0.2 * wind + 0.15 * hit, 1 + 0.3 * wind - 0.15 * hit, 1 - 0.2 * wind + 0.15 * hit);
   body.position.set(BODY_BOTTOM * sn, bob + BODY_BOTTOM * (1 - c), 0);
 
   // Stretch the drop line from the ground to the bobbing hem.

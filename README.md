@@ -8,6 +8,12 @@ Browser game built with three.js r187. Fight through 3 floors of floating-island
 - Desktop: WASD to move, mouse to aim, J or left click to attack, Space or K to dodge, L to bash, Esc to pause.
 - Phone: play in landscape, with an on-screen stick and buttons.
 
+## What's in v1.4
+- Rebuilt character models with jointed limbs: the hero, skeleton grunt, skeleton knight, goblin archer, armoured brute, cultist, Stone Golem and Necromancer. See `screenshots/pose-sheet-v1.4.png`.
+- Real animation: characters walk with a leg and arm cycle, raise their weapon through the windup, strike, and recover. The hero swings the sword arm, punches with the shield on a bash and tucks into the dodge.
+- The other creatures (slimes, rats, bat, spider, wisp, mushroom, scorpion, imp, totem, ghost) now react to what they are doing: they crouch, swell, flare or cock a tail before an attack and scuttle faster while moving.
+- Not changed: props, tiles, pickups, and the unused heroes.
+
 ## What's in v1.3
 - Bridged islands: a room can now be 2 to 4 small islands joined by stone bridges (2 tiles wide), generated from the seed. See `screenshots/bridged-room-v1.3.png`.
 - About 47% of combat rooms are bridged (chance 0.4, 0.5, 0.6 on floors 1, 2, 3). The first room of a run and boss rooms stay one island.

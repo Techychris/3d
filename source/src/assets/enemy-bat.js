@@ -1,3 +1,5 @@
+import { accents } from "../engine/rig.js";
+
 export const meta = {
   id: "enemy-bat",
   name: "Cave bat",
@@ -9,12 +11,14 @@ export const meta = {
 
 const BODY_Y = 0.9;
 
-function applyPose(p, t) {
-  const flap = Math.sin(t * 14) * 0.7;
+function applyPose(p, t, pose) {
+  const { wind, hit } = accents(pose);
+  const flap = Math.sin(t * 14) * 0.7 * (1 - 0.8 * wind) + 0.9 * wind - 0.5 * hit; // wings lift and hold before the dive
   p.wingL.rotation.z = flap;
   p.wingR.rotation.z = -flap;
   const bob = Math.sin(t * 3) * 0.04;
   p.body.position.y = BODY_Y + bob;
+  p.body.rotation.x = -0.5 * wind + 0.7 * hit;                                       // rears back, then noses down
   const h = BODY_Y + bob - 0.01;
   p.drop.scale.y = h;
   p.drop.position.y = 0.01 + h / 2;
@@ -77,8 +81,8 @@ export function build(THREE) {
   return g;
 }
 
-export function update(group, t) {
+export function update(group, t, pose) {
   const p = group.userData.parts;
   if (!p) return;
-  applyPose(p, t);
+  applyPose(p, t, pose);
 }

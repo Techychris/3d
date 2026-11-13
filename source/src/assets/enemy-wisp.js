@@ -1,3 +1,5 @@
+import { accents } from "../engine/rig.js";
+
 export const meta = {
   id: "enemy-wisp",
   name: "Wisp",
@@ -49,12 +51,15 @@ export function build(THREE) {
   return g;
 }
 
-export function update(group, t) {
+// pose: sparks pull in and the core flares while it charges, then burst outward as it fires
+export function update(group, t, pose) {
   const r = group.userData;
+  const { wind, hit } = accents(pose), orbit = ORBIT_R * (1 - 0.6 * wind + 0.9 * hit);
   const y = BODY_Y + Math.sin(t * 2.2) * BOB_AMP;
 
   r.core.position.y = y;
-  r.core.material.emissiveIntensity = 0.9 + 0.4 * Math.sin(t * 3.0);   // pulse
+  r.core.material.emissiveIntensity = 0.9 + 0.4 * Math.sin(t * 3.0) + 1.6 * wind;   // pulse
+  r.core.scale.setScalar(1 + 0.45 * wind - 0.2 * hit);
 
   r.shell.position.y = y;
   r.shell.rotation.y = t * 0.5;
@@ -62,8 +67,8 @@ export function update(group, t) {
   for (let k = 0; k < SPARKS; k++) {
     const a = t * 1.6 + (k * Math.PI * 2) / SPARKS;
     const s = r.sparks[k];
-    s.position.x = Math.cos(a) * ORBIT_R;
-    s.position.z = Math.sin(a) * ORBIT_R;
+    s.position.x = Math.cos(a) * orbit;
+    s.position.z = Math.sin(a) * orbit;
     s.position.y = y + Math.sin(t * 2.0 + k) * 0.04;
   }
 

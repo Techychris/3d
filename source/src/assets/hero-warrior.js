@@ -1,3 +1,5 @@
+import { biped, fill, poseBiped, STYLES } from "../engine/rig.js";
+
 export const meta = {
   id: "hero-warrior",
   name: "Warrior",
@@ -8,94 +10,51 @@ export const meta = {
 };
 
 export function build(THREE) {
-  const g = new THREE.Group(); g.name = meta.id;
-
   const mat = (color, metal = false) => new THREE.MeshStandardMaterial({
     color, flatShading: true, roughness: metal ? 0.5 : 0.8, metalness: metal ? 0.3 : 0
   });
-  const stoneDark = mat(0x3b3a40);
-  const metal = mat(0x9aa3ad, true);
-  const metalDark = mat(0x5b636d, true);
-  const gold = mat(0xe0b04a, true);
-  const clothRed = mat(0xa8423a);
-  const skin = mat(0xd9a27e);
-  const wood = mat(0x7a5236);
-  const woodDark = mat(0x4e3423);
+  const stoneDark = mat(0x3b3a40), metal = mat(0x9aa3ad, true), metalDark = mat(0x5b636d, true), gold = mat(0xe0b04a, true);
+  const clothRed = mat(0xa8423a), skin = mat(0xd9a27e), wood = mat(0x7a5236), woodDark = mat(0x4e3423);
 
-  // Adds a mesh at (x, y, z) and remembers its base height for the idle bob.
-  const place = (geo, material, name, x, y, z) => {
-    const m = new THREE.Mesh(geo, material);
-    m.name = name;
-    m.position.set(x, y, z);
-    m.userData.baseY = y;
-    g.add(m);
-    return m;
-  };
-
-  // Blob shadow (not bobbed).
-  const shadowMat = new THREE.MeshStandardMaterial({
-    color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false
+  const { group, rig, mesh } = biped(THREE, meta.id, {
+    leg: 0.3, torso: 0.27, arm: 0.3, shoulders: 0.185, hips: 0.085, limb: 0.05, depth: 0.7, shadow: 0.38,
+    mats: { ...fill(metalDark), torso: metal, hips: woodDark, thigh: stoneDark, foot: stoneDark, shoulder: metal, hand: skin },
   });
-  const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.38, 16), shadowMat);
-  shadow.rotation.x = -Math.PI / 2;
-  shadow.position.y = 0.01;
-  shadow.name = "shadow";
-  g.add(shadow);
 
-  // Legs (stationary during the bob).
-  place(new THREE.BoxGeometry(0.13, 0.3, 0.14), stoneDark, "leg", -0.09, 0.15, 0);
-  place(new THREE.BoxGeometry(0.13, 0.3, 0.14), stoneDark, "leg", 0.09, 0.15, 0);
+  // Breastplate trim, red tabard front and back, belt buckle.
+  mesh(rig.chest, new THREE.BoxGeometry(0.19, 0.36, 0.03), clothRed, "tabard", 0, 0.08, 0.125);
+  mesh(rig.chest, new THREE.BoxGeometry(0.21, 0.3, 0.02), clothRed, "cape", 0, 0.1, -0.13);
+  mesh(rig.chest, new THREE.BoxGeometry(0.07, 0.06, 0.03), gold, "buckle", 0, -0.02, 0.135);
+  mesh(rig.chest, new THREE.TorusGeometry(0.1, 0.022, 5, 10, Math.PI).rotateZ(Math.PI), gold, "collar", 0, 0.27, 0.04);
+  for (const arm of [rig.armL, rig.armR]) mesh(arm, new THREE.SphereGeometry(0.095, 8, 5).scale(1, 0.75, 1), metal, "pauldron", 0, 0.03, 0);
+  for (const shin of [rig.shinL, rig.shinR]) mesh(shin, new THREE.BoxGeometry(0.1, 0.05, 0.06), metal, "kneeGuard", 0, -0.01, 0.045);
 
-  // Torso, belt, red tabard.
-  place(new THREE.BoxGeometry(0.34, 0.3, 0.24), metal, "torso", 0, 0.45, 0);
-  place(new THREE.BoxGeometry(0.36, 0.05, 0.26), woodDark, "belt", 0, 0.31, 0);
-  place(new THREE.BoxGeometry(0.2, 0.34, 0.03), clothRed, "tabard", 0, 0.44, 0.125);
+  // Oversized helmet: dome, dark visor slit, cheek guards, gold band and a red crest that sweeps back.
+  mesh(rig.head, new THREE.SphereGeometry(0.2, 10, 8), metal, "helmet", 0, 0.18, 0);
+  mesh(rig.head, new THREE.BoxGeometry(0.24, 0.045, 0.06), stoneDark, "visor", 0, 0.17, 0.175);
+  mesh(rig.head, new THREE.BoxGeometry(0.045, 0.15, 0.05), metalDark, "noseGuard", 0, 0.13, 0.19);
+  for (const s of [-1, 1]) mesh(rig.head, new THREE.BoxGeometry(0.03, 0.13, 0.12), metalDark, "cheekGuard", s * 0.185, 0.09, 0.07);
+  mesh(rig.head, new THREE.TorusGeometry(0.2, 0.02, 6, 14).rotateX(Math.PI / 2), gold, "band", 0, 0.2, 0);
+  mesh(rig.head, new THREE.TorusGeometry(0.2, 0.035, 5, 10, Math.PI * 0.75).rotateY(Math.PI / 2).rotateX(-0.5), clothRed, "crest", 0, 0.2, 0);
 
-  // Shoulders and arms.
-  place(new THREE.SphereGeometry(0.09, 8, 6), metal, "pauldron", -0.22, 0.6, 0);
-  place(new THREE.SphereGeometry(0.09, 8, 6), metal, "pauldron", 0.22, 0.6, 0);
-  place(new THREE.BoxGeometry(0.1, 0.28, 0.1), metalDark, "arm", -0.22, 0.5, 0);
-  place(new THREE.BoxGeometry(0.1, 0.28, 0.1), metalDark, "arm", 0.22, 0.5, 0);
+  // Round shield strapped to the left forearm, facing out and forward.
+  const shield = new THREE.Group(); shield.name = "shieldArm";
+  shield.position.set(0.05, -0.09, 0.03); shield.rotation.set(0, 0, 0.25);
+  rig.foreL.add(shield);
+  mesh(shield, new THREE.CylinderGeometry(0.17, 0.17, 0.035, 12).rotateZ(Math.PI / 2), wood, "shield");
+  mesh(shield, new THREE.TorusGeometry(0.17, 0.024, 6, 14).rotateY(Math.PI / 2), metalDark, "shieldRim", 0.012, 0, 0);
+  mesh(shield, new THREE.SphereGeometry(0.055, 8, 6).scale(0.6, 1, 1), gold, "shieldBoss", 0.03, 0, 0);
 
-  // Oversized helmet with visor, nose guard, crest and gold band.
-  place(new THREE.SphereGeometry(0.2, 8, 6), metal, "helmet", 0, 0.78, 0);
-  place(new THREE.BoxGeometry(0.22, 0.05, 0.05), metalDark, "visor", 0, 0.76, 0.18);
-  place(new THREE.BoxGeometry(0.04, 0.12, 0.04), metalDark, "noseGuard", 0, 0.72, 0.19);
-  place(new THREE.BoxGeometry(0.06, 0.1, 0.28), metalDark, "crest", 0, 0.94, 0);
-  const band = place(new THREE.TorusGeometry(0.2, 0.02, 6, 12), gold, "band", 0, 0.78, 0);
-  band.rotation.x = Math.PI / 2;
+  // Sword in the right fist: tapered blade along the fist's forward axis, gold guard, wrapped grip, pommel.
+  mesh(rig.handR, new THREE.CylinderGeometry(0.02, 0.075, 0.56, 4).rotateY(Math.PI / 4).rotateX(Math.PI / 2).scale(0.38, 1, 1), metal, "blade", 0, 0, 0.36);
+  mesh(rig.handR, new THREE.BoxGeometry(0.05, 0.24, 0.05), gold, "guard", 0, 0, 0.07);
+  mesh(rig.handR, new THREE.CylinderGeometry(0.026, 0.026, 0.16, 6).rotateX(Math.PI / 2), woodDark, "handle", 0, 0, -0.01);
+  mesh(rig.handR, new THREE.IcosahedronGeometry(0.038, 0), gold, "pommel", 0, 0, -0.1);
 
-  // Round shield on the left arm (character's left = +x).
-  const shieldFace = place(new THREE.CylinderGeometry(0.15, 0.15, 0.04, 12), wood, "shield", 0.25, 0.45, 0.14);
-  shieldFace.rotation.x = Math.PI / 2;
-  const shieldRim = place(new THREE.TorusGeometry(0.15, 0.025, 6, 12), metalDark, "shieldRim", 0.25, 0.45, 0.16);
-  shieldRim.rotation.x = 0;
-  place(new THREE.SphereGeometry(0.05, 8, 6), gold, "shieldBoss", 0.25, 0.45, 0.17);
-
-  // Big sword in the right hand (character's right = -x), tilted forward.
-  const pivot = { x: -0.25, y: 0.45, z: 0 };
-  const tilt = 0.35;
-  const cos = Math.cos(tilt), sin = Math.sin(tilt);
-  const bladeLen = 0.55;
-  place(new THREE.SphereGeometry(0.05, 8, 6), skin, "hand", pivot.x, pivot.y, pivot.z);
-  const blade = place(new THREE.BoxGeometry(0.1, bladeLen, 0.03), metal, "blade",
-    pivot.x, pivot.y + (bladeLen / 2) * cos, pivot.z + (bladeLen / 2) * sin);
-  blade.rotation.x = tilt;
-  const guard = place(new THREE.BoxGeometry(0.26, 0.05, 0.05), gold, "guard", pivot.x, pivot.y, pivot.z);
-  guard.rotation.x = tilt;
-  const handleLen = 0.16;
-  const handle = place(new THREE.CylinderGeometry(0.03, 0.03, handleLen, 8), woodDark, "handle",
-    pivot.x, pivot.y - (handleLen / 2) * cos, pivot.z - (handleLen / 2) * sin);
-  handle.rotation.x = tilt;
-
-  return g;
+  return group;
 }
 
-export function update(group, t) {
-  // Gentle breathing bob of the body; legs and shadow stay put.
-  const bob = Math.sin(t * 2.4) * 0.012;
-  for (const c of group.children) {
-    if (c.name === "shadow" || c.name === "leg") continue;
-    c.position.y = c.userData.baseY + bob;
-  }
+// pose: { move, act: "idle" | "attack" | "bash" | "dodge", k }
+export function update(group, t, pose) {
+  poseBiped(group, t, pose, STYLES.hero);
 }

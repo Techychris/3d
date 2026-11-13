@@ -1,3 +1,5 @@
+import { biped, fill, poseBiped, STYLES } from "../engine/rig.js";
+
 export const meta = {
   id: "boss-golem",
   name: "Stone golem",
@@ -8,80 +10,52 @@ export const meta = {
 };
 
 export function build(THREE) {
-  const g = new THREE.Group(); g.name = meta.id;
+  const std = (color, opts = {}) => new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.8, metalness: 0, ...opts });
+  const stoneDark = std(0x3b3a40), stone = std(0x5a5862), stoneLight = std(0x8a8794), moss = std(0x4f7a3f);
+  const ember = std(0xff7a2e, { emissive: 0xff7a2e, emissiveIntensity: 1.0 });
+  const coreMat = std(0xff7a2e, { emissive: 0xff7a2e, emissiveIntensity: 1.0 });
+  const danger = std(0xff4d3d, { emissive: 0xff4d3d, emissiveIntensity: 1.0 });
 
-  const mat = (color, opts = {}) =>
-    new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.8, metalness: 0, ...opts });
-  const stoneDark = mat(0x3b3a40);
-  const stone = mat(0x5a5862);
-  const stoneLight = mat(0x8a8794);
-  const ember = mat(0xff7a2e, { emissive: 0xff7a2e, emissiveIntensity: 1.0 });
-  const danger = mat(0xff4d3d, { emissive: 0xff4d3d, emissiveIntensity: 1.0 });
-
-  const add = (geo, m, name, x, y, z, parent = g) => {
-    const o = new THREE.Mesh(geo, m);
-    o.name = name; o.position.set(x, y, z);
-    parent.add(o);
-    return o;
-  };
-
-  // Blob shadow, sized to the 2x2 footprint.
-  const shadowMat = new THREE.MeshStandardMaterial({
-    color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false,
-    flatShading: true, roughness: 0.8, metalness: 0
+  const { group, rig, mesh } = biped(THREE, meta.id, {
+    leg: 0.95, torso: 0.95, arm: 1.3, shoulders: 0.72, hips: 0.38, limb: 0.2, depth: 0.85, shadow: 0.95,
+    mats: { ...fill(stone), thigh: stoneDark, shin: stoneDark, foot: stoneDark, hips: stoneDark, shoulder: stoneLight, hand: stoneLight },
   });
-  const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.95, 16), shadowMat);
-  shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.01; shadow.name = "shadow";
-  g.add(shadow);
 
-  // Legs, arms, fists, shoulders: symmetric pairs.
-  for (const s of [-1, 1]) {
-    add(new THREE.CylinderGeometry(0.28, 0.32, 1.0, 7), stoneDark, "leg", s * 0.4, 0.5, 0);
-    add(new THREE.BoxGeometry(0.7, 0.18, 0.78), stoneDark, "foot", s * 0.4, 0.09, 0.05);
-    add(new THREE.CylinderGeometry(0.2, 0.24, 1.3, 6), stone, "arm", s * 0.64, 1.3, 0);
-    add(new THREE.IcosahedronGeometry(0.36, 0), stoneLight, "fist", s * 0.66, 0.6, 0.08);
-    add(new THREE.IcosahedronGeometry(0.4, 0), stoneLight, "shoulder", s * 0.62, 1.95, 0);
+  // Boulder body: a faceted chest with loose chunks, glowing cracks, moss on the shoulders and an ember core.
+  mesh(rig.chest, new THREE.DodecahedronGeometry(0.72, 0).scale(1.12, 0.95, 0.9), stone, "body", 0, 0.5, 0);
+  for (const [x, y, z, r, m] of [[-0.45, 0.85, 0.5, 0.22, stoneDark], [0.5, 0.2, 0.5, 0.2, stoneLight], [0.2, -0.05, 0.6, 0.2, stoneDark], [-0.6, -0.05, 0.2, 0.22, stoneLight], [0.1, 1.0, -0.4, 0.3, stoneDark]]) {
+    mesh(rig.chest, new THREE.IcosahedronGeometry(r, 0), m, "chunk", x, y, z);
   }
+  for (const [w, h, x, y, z, rz] of [[0.05, 0.45, -0.25, 0.55, 0.66, 0.3], [0.04, 0.35, 0.3, 0.2, 0.64, -0.4], [0.35, 0.04, 0.35, 0.75, 0.6, 0.2], [0.04, 0.3, -0.4, 0.0, 0.58, 0.5]]) {
+    mesh(rig.chest, new THREE.BoxGeometry(w, h, 0.03).rotateZ(rz), ember, "crack", x, y, z);
+  }
+  const core = mesh(rig.chest, new THREE.SphereGeometry(0.26, 10, 8), coreMat, "core", 0, 0.5, 0.46);
+  for (const arm of [rig.armL, rig.armR]) {
+    mesh(arm, new THREE.IcosahedronGeometry(0.42, 0), stoneLight, "shoulderRock", 0, 0.05, 0);
+    mesh(arm, new THREE.SphereGeometry(0.3, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.5, 1), moss, "moss", 0, 0.3, 0);
+  }
+  for (const hand of [rig.handL, rig.handR]) mesh(hand, new THREE.IcosahedronGeometry(0.38, 0), stoneLight, "fistRock", 0, -0.1, 0.04);
+  for (const shin of [rig.shinL, rig.shinR]) mesh(shin, new THREE.BoxGeometry(0.62, 0.2, 0.74), stoneDark, "footSlab", 0, -0.4, 0.08);
 
-  // Chest group: torso, stone chunks, ember cracks and core. Scaled for breathing.
-  const chest = new THREE.Group(); chest.name = "chest"; g.add(chest);
-  const torso = add(new THREE.DodecahedronGeometry(0.75, 0), stone, "body", 0, 1.5, 0, chest);
-  torso.scale.set(1.1, 1.0, 0.9);
+  // Blocky head with a heavy brow and two red eyes.
+  mesh(rig.head, new THREE.BoxGeometry(0.5, 0.42, 0.5), stone, "skullBlock", 0, 0.12, 0.12);
+  mesh(rig.head, new THREE.BoxGeometry(0.56, 0.1, 0.2), stoneDark, "brow", 0, 0.26, 0.32);
+  for (const s of [-1, 1]) mesh(rig.head, new THREE.SphereGeometry(0.055, 8, 6), danger, "eye", s * 0.12, 0.16, 0.38);
 
-  add(new THREE.IcosahedronGeometry(0.22, 0), stoneDark, "chunk", -0.45, 1.85, 0.6, chest);
-  add(new THREE.IcosahedronGeometry(0.2, 0), stoneLight, "chunk", 0.5, 1.2, 0.55, chest);
-  add(new THREE.DodecahedronGeometry(0.2, 0), stoneDark, "chunk", 0.2, 0.95, 0.7, chest);
-  add(new THREE.DodecahedronGeometry(0.22, 0), stoneLight, "chunk", -0.6, 0.95, 0.2, chest);
-
-  const c1 = add(new THREE.BoxGeometry(0.05, 0.45, 0.03), ember, "crack", -0.25, 1.55, 0.7, chest);
-  c1.rotation.z = 0.3;
-  const c2 = add(new THREE.BoxGeometry(0.04, 0.35, 0.03), ember, "crack", 0.3, 1.2, 0.68, chest);
-  c2.rotation.z = -0.4;
-  const c3 = add(new THREE.BoxGeometry(0.35, 0.04, 0.03), ember, "crack", 0.35, 1.75, 0.66, chest);
-  c3.rotation.z = 0.2;
-  const c4 = add(new THREE.BoxGeometry(0.04, 0.3, 0.03), ember, "crack", -0.4, 1.0, 0.6, chest);
-  c4.rotation.z = 0.5;
-
-  const coreMat = mat(0xff7a2e, { emissive: 0xff7a2e, emissiveIntensity: 1.0 });
-  const core = add(new THREE.SphereGeometry(0.26, 10, 8), coreMat, "core", 0, 1.5, 0.5, chest);
-
-  // Small head sunk between the shoulders, with danger-red eyes.
-  add(new THREE.BoxGeometry(0.5, 0.45, 0.5), stone, "head", 0, 2.2, 0.1);
-  add(new THREE.SphereGeometry(0.055, 8, 6), danger, "eye", -0.12, 2.25, 0.37);
-  add(new THREE.SphereGeometry(0.055, 8, 6), danger, "eye", 0.12, 2.25, 0.37);
-
-  g.userData.chest = chest;
-  g.userData.core = core;
-  return g;
+  group.userData.chest = rig.chest; group.userData.core = core;
+  return group;
 }
 
-export function update(group, t) {
-  const chest = group.userData.chest;
-  const core = group.userData.core;
-  if (chest) chest.scale.y = 1 + 0.02 * Math.sin(t * 1.6);   // slow heavy breathing
-  if (core) {
-    const p = 0.5 + 0.5 * Math.sin(t * 2.2);                  // ember core pulse
-    core.material.emissiveIntensity = 0.7 + 0.8 * p;
-    core.scale.setScalar(0.92 + 0.12 * p);
-  }
+const GOLEM = { ...STYLES.slam, stride: 3.2 };
+
+// pose.act: the core burns hotter as a slam winds up.
+export function update(group, t, pose) {
+  poseBiped(group, t, pose, GOLEM);
+  const { chest, core } = group.userData;
+  if (!core) return;
+  const charge = pose && pose.act === "windup" ? pose.k : 0;
+  chest.scale.y = 1 + 0.02 * Math.sin(t * 1.6);              // slow heavy breathing
+  const p = 0.5 + 0.5 * Math.sin(t * (2.2 + 8 * charge));    // ember core pulse
+  core.material.emissiveIntensity = 0.7 + 0.8 * p + 1.6 * charge;
+  core.scale.setScalar(0.92 + 0.12 * p + 0.3 * charge);
 }

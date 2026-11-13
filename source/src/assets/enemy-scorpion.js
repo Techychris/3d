@@ -1,3 +1,5 @@
+import { accents } from "../engine/rig.js";
+
 export const meta = {
   id: "enemy-scorpion",
   name: "Giant scorpion",
@@ -99,9 +101,12 @@ export function build(THREE) {
   return g;
 }
 
-export function update(group, t) {
+// pose: the tail cocks back and the sting glows through the windup, then whips forward
+export function update(group, t, pose) {
   const p = group.userData.parts;
   if (!p) return;
-  p.tail.rotation.z = Math.sin(t * 2.0) * 0.12;
-  p.tipMat.emissiveIntensity = 1.0 + 0.4 * Math.sin(t * 4.0);
+  const { wind, hit } = accents(pose);
+  p.tail.rotation.z = Math.sin(t * 2.0) * 0.12 * (1 - wind);
+  p.tail.rotation.x = -0.45 * wind + 0.8 * hit;
+  p.tipMat.emissiveIntensity = 1.0 + 0.4 * Math.sin(t * 4.0) + 2 * wind;
 }

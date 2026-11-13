@@ -1,3 +1,5 @@
+import { accents } from "../engine/rig.js";
+
 export const meta = {
   id: "enemy-mushroom",
   name: "Spore mushroom",
@@ -64,9 +66,11 @@ export function build(THREE) {
   return g;
 }
 
-export function update(group, t) {
+// pose: the cap swells through the windup and snaps flat as the spores burst
+export function update(group, t, pose) {
   const cap = group.userData.cap || group.getObjectByName("cap");
   if (!cap) return;
-  const s = 1 + 0.06 * Math.max(0, Math.sin(t * 2.5));
-  cap.scale.set(s, CAP_SQUASH * s, s);
+  const { wind, hit } = accents(pose);
+  const s = 1 + 0.06 * Math.max(0, Math.sin(t * 2.5)) + 0.3 * wind;
+  cap.scale.set(s + 0.25 * hit, CAP_SQUASH * s * (1 - 0.45 * hit), s + 0.25 * hit);
 }

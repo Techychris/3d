@@ -174,3 +174,13 @@ Rules: never assign a state; use `machine.send(EVENT)` (returns false if refused
 button clicks) or `transition(table, obj, EVENT)` (throws on an illegal move). Derived facts (`player.dodging`,
 `telegraph.dead`, `telegraph.resolved`) are getters over the state. `tests/unit/fsm.test.mjs` checks every table
 for unreachable states.
+
+## Model poses
+
+`asset.update(t, pose)` takes an optional pose: `{ move: 0..1, act: "idle" | "windup" | "attack" | "recover" | ..., k: 0..1 }`.
+A model's look must be a pure function of `(t, pose)`; a missing pose is the idle pose.
+
+- Two-legged characters are built on `src/engine/rig.js` (`biped`, `poseBiped`, `STYLES`): jointed hips, chest, head, arms, elbows, wrists, legs and knees. A style is a stride rate plus key poses per act.
+- Other creatures read `accents(pose)` (`wind`, `hit`, `move`) and exaggerate their own parts.
+- Enemies set `e.act` and `e.k` in their brain; `updateActor` measures `e.mv` from how far the actor really moved. Bosses play "windup" for the first 60% of each attack and "attack" for the rest. The player maps dodge, bash and the two halves of the swing.
+- `tests/rig-demo.html?ids=<ids>&cols=0-7` renders a pose sheet (bundle `tests/rig-demo.entry.js` with esbuild first).

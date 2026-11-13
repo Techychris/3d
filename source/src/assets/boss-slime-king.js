@@ -1,3 +1,5 @@
+import { accents } from "../engine/rig.js";
+
 export const meta = {
   id: "boss-slime-king",
   name: "Slime King",
@@ -85,12 +87,14 @@ export function build(THREE) {
   return g;
 }
 
-export function update(group, t) {
+// pose: sinks and spreads through a windup, snaps tall on the strike
+export function update(group, t, pose) {
   const wobble = group.userData.wobble;
   const crown = group.userData.crown;
   const s = Math.sin(t * 2.2);              // slow wobble
-  const sy = 1 + 0.06 * s;
-  const sxz = 1 - 0.04 * s;                 // widen as it shortens, and the reverse
+  const { wind, hit, move } = accents(pose);
+  const sy = 1 + 0.06 * s * (1 + move) - 0.1 * wind + 0.1 * hit;
+  const sxz = 1 - 0.04 * s * (1 + move) + 0.06 * wind - 0.04 * hit;  // widen as it shortens, and the reverse
   wobble.scale.set(sxz, sy, sxz);
   crown.position.y = 1.4 * sy - 0.04;       // keep the crown on the top of the shell
 }

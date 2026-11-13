@@ -1,3 +1,5 @@
+import { accents } from "../engine/rig.js";
+
 export const meta = {
   id: "enemy-imp",
   name: "Fire imp",
@@ -85,7 +87,8 @@ export function build(THREE) {
   return g;
 }
 
-export function update(group, t) {
+// pose: the fireball swells and the wings beat wide while it winds up a throw
+export function update(group, t, pose) {
   const p = group.userData.parts;
   if (!p) return;
 
@@ -94,14 +97,15 @@ export function update(group, t) {
   p.rig.position.y = HOVER + bob;
 
   // Wings flap in opposite-mirrored arcs.
-  const flap = Math.sin(t * 14) * 0.6;
+  const { wind, hit } = accents(pose);
+  const flap = Math.sin(t * 14) * (0.6 + 0.3 * wind);
   p.wingL.rotation.z = -flap;
   p.wingR.rotation.z = flap;
 
   // Fireball pulses in size and glow.
   const pulse = Math.sin(t * 7);
-  p.fire.scale.setScalar(1 + 0.12 * pulse);
-  p.fireMat.emissiveIntensity = 1.0 + 0.4 * pulse;
+  p.fire.scale.setScalar(1 + 0.12 * pulse + 0.9 * wind - 0.5 * hit);
+  p.fireMat.emissiveIntensity = 1.0 + 0.4 * pulse + 1.5 * wind;
 
   // Drop line runs from the floor shadow up to the underside of the body.
   const top = p.rig.position.y - 0.2;

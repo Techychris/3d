@@ -1,3 +1,5 @@
+import { accents } from "../engine/rig.js";
+
 export const meta = {
   id: "enemy-rat-swarm",
   name: "Rat swarm",
@@ -64,13 +66,16 @@ export function build(THREE) {
   return g;
 }
 
-export function update(group, t) {
+// pose: the pack bunches up before a bite and scatters wide on it; it runs in bigger loops while moving
+export function update(group, t, pose) {
+  const { wind, hit, move } = accents(pose), spread = 1 + 0.5 * move - 0.6 * wind + 0.8 * hit;
   for (let i = 0; i < RATS.length; i++) {
     const r = RATS[i];
     const rat = group.children[i];
     const a = t * 3.1 + r.phase;
-    rat.position.x = r.x + Math.cos(a) * SCURRY_RADIUS;
-    rat.position.z = r.z + Math.sin(a) * SCURRY_RADIUS;
+    rat.position.x = r.x * (1 - 0.5 * wind) + Math.cos(a) * SCURRY_RADIUS * spread;
+    rat.position.z = r.z * (1 - 0.5 * wind) + Math.sin(a) * SCURRY_RADIUS * spread;
+    rat.position.y = Math.abs(Math.sin(t * 11 + r.phase)) * 0.05 * (move + hit);
     rat.rotation.y = r.heading + Math.sin(t * 6 + r.phase) * 0.25;
   }
 }

@@ -1,3 +1,5 @@
+import { accents } from "../engine/rig.js";
+
 export const meta = {
   id: "enemy-totem",
   name: "Stone totem",
@@ -57,12 +59,15 @@ export function build(THREE) {
   return g;
 }
 
-export function update(group, t) {
+// pose: the crystal swells and blazes before each pulse, then snaps small as it fires
+export function update(group, t, pose) {
   const crystal = group.userData.crystal;
   if (!crystal) return;
   crystal.rotation.y = t * 1.2;
   const pulse = Math.sin(t * 2.5);
-  const s = 1 + 0.04 * pulse;
+  const { wind, hit } = accents(pose);
+  const s = 1 + 0.04 * pulse + 0.5 * wind - 0.25 * hit;
   crystal.scale.set(s, s, s);
-  crystal.material.emissiveIntensity = 1.0 + 0.3 * pulse;
+  crystal.material.emissiveIntensity = 1.0 + 0.3 * pulse + 2.2 * wind;
+  crystal.position.y = 1.09 + 0.12 * wind;
 }

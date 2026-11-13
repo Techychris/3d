@@ -88,6 +88,7 @@ export function createActor(world, cfg) {
     dead: false, status: { burnT: 0, burnDps: 0, slowT: 0, slowPct: 0, frozenT: 0, bleedT: 0, bleedDps: 0, stunT: 0 },
     speedMul: 1, group, asset, world, yaw: cfg.yaw || 0, pitch: 0, sx: 1, sy: 1, baseScale: cfg.scale || 1,
     state: "idle", t: 0, cd: 0, tels: [], brain: null, def: null, _done: false, guard: false,
+    act: "idle", k: 0, mv: 0, px: cfg.x, pz: cfg.z, // what the model is told: its act, 0..1 through it, and how fast it walks
   };
   e.hp = cfg.hp;
   e.update = (w, dt) => updateActor(e, w, dt);
@@ -109,15 +110,21 @@ function updateActor(e, w, dt) {
   if (e.dead || e.hp <= 0) { finish(e, w); return; }
   tickStatus(w, e, dt);
   if (e.dead || e.hp <= 0) { finish(e, w); return; }
-  e.asset.update(w.time);
   if (e.brain) e.brain(e, w, dt);
   if (e.dead || e.hp <= 0) { finish(e, w); return; }
   if (!e.noSep) separate(e, w);
   TMP.x = e.x; TMP.z = e.z;
   resolveCollision(w, TMP, e.radius);
   e.x = TMP.x; e.z = TMP.z;
+  // the model walks as fast as the actor actually moved this frame (smoothed), and plays the brain's act
+  const sp = Math.hypot(e.x - e.px, e.z - e.pz) / Math.max(dt, 1e-3) / Math.max(e.speed, 0.5);
+  e.px = e.x; e.pz = e.z;
+  e.mv += (Math.min(1, sp) - e.mv) * Math.min(1, dt * 12);
+  POSE.move = e.mv; POSE.act = e.act; POSE.k = e.k;
+  e.asset.update(w.time, POSE);
   sync(e);
 }
+const POSE = { move: 0, act: "idle", k: 0 };
 
 function separate(e, w) {
   const list = w.enemies;
@@ -199,6 +206,7 @@ function regularBrain(e, w, dt) {
     case "windup": {
       if (e.status.stunT > 0 || e.status.frozenT > 0) { cancel(e); break; }   // interrupted: no damage
       const k = clamp(e.t / e.wu, 0, 1);
+      e.k = k;
       e.noSep = !!D.noSepWindup;
       if (D.windupTick) D.windupTick(e, w, dt, k);
       if (e.t >= e.wu) {
@@ -209,12 +217,14 @@ function regularBrain(e, w, dt) {
     }
     case "attack": {
       const hold = D.hold === undefined ? 0.12 : D.hold;
-      if (D.attackTick) D.attackTick(e, w, dt, clamp(e.t / hold, 0, 1));
+      e.k = clamp(e.t / hold, 0, 1);
+      if (D.attackTick) D.attackTick(e, w, dt, e.k);
       if (e.t >= hold) { go(e, "END"); e.noSep = false; if (D.endAttack) D.endAttack(e, w); }
       break;
     }
     case "recover":
       if (e.speedMul <= 0.01) e.t -= dt;      // frozen / stunned: stay helpless
+      e.k = clamp(e.t / D.recover, 0, 1);
       if (D.recoverTick) D.recoverTick(e, w, dt, d, ux, uz);
       if (e.t >= D.recover) {
         go(e, "READY"); e.guard = D.guard === true;
@@ -222,6 +232,7 @@ function regularBrain(e, w, dt) {
       }
       break;
   }
+  e.act = e.state === "aggro" ? "idle" : e.state; // the model has no pose for "aggro": it idles or walks
 }
 
 function cancel(e) {

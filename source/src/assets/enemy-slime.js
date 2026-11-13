@@ -1,3 +1,5 @@
+import { accents } from "../engine/rig.js";
+
 export const meta = {
   id: "enemy-slime",
   name: "Slime",
@@ -42,10 +44,12 @@ export function build(THREE) {
   return g;
 }
 
-export function update(group, t) {
+// pose: crouches flat through the windup, springs tall on the strike, jiggles harder while moving
+export function update(group, t, pose) {
   const body = group.userData.body;
   if (!body) return;
   // Squash and stretch: stretch tall while narrowing, then squash wide. Shadow is not touched.
-  const s = Math.sin(t * 5);
-  body.scale.set(1 - 0.08 * s, 1 + 0.12 * s, 1 - 0.08 * s);
+  const { wind, hit, move } = accents(pose);
+  const s = Math.sin(t * 5) * (1 + 0.8 * move), y = 1 + 0.12 * s - 0.15 * wind + 0.15 * hit, xz = 1 - 0.08 * s + 0.1 * wind - 0.06 * hit;
+  body.scale.set(xz, y, xz);
 }
