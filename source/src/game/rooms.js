@@ -724,66 +724,43 @@ function buildRocks(rng, group, L) {
 }
 
 // ---------------------------------------------------------------- exit signs
-function signGeometry(type) {
-  const c = SIGN_COLORS[type] || 0xffffff;
-  const light = lerpHex(c, 0xffffff, 0.5), dark = lerpHex(c, 0x000000, 0.65), ink = 0x14091f;
+// A door sign is a flat medallion that faces the camera: dark plate, ring in the room type's colour, a pointer below,
+// and the same line icon the HUD uses for that room type (src/ui/icons.js), redrawn here as strokes on its 24-unit grid.
+const arcPts = (cx, cy, r, a0, a1, n = 10) => Array.from({ length: n + 1 }, (_, i) => { const a = a0 + (a1 - a0) * i / n; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; });
+const SWORD = [[[3.5, 3.5], [15.1, 15.1]], [[10.71, 14.96], [14.96, 10.71]]];
+const flipX = (line) => line.map(([x, y]) => [24 - x, y]);
+export const SIGN_GLYPHS = {
+  combat: { lines: [...SWORD, ...SWORD.map(flipX)], dots: [[16.3, 16.3, 1.5], [7.7, 16.3, 1.5]] },
+  elite: {
+    lines: [[[8, 19.5], [8, 16.9], [6, 15.3], [4.9, 13.3], ...arcPts(12, 11, 7.5, Math.PI, Math.PI * 2, 12), [19.1, 13.3], [18, 15.3], [16, 16.9], [16, 19.5], [8, 19.5]], [[11, 19.5], [11, 17.5]], [[13, 19.5], [13, 17.5]]],
+    dots: [[9.3, 11.3, 1.9], [14.7, 11.3, 1.9]],
+  },
+  treasure: {
+    lines: [[[3.5, 10], [20.5, 10], [20.5, 19.5], [3.5, 19.5], [3.5, 10], [3.5, 8.5], [4.5, 6], [7, 5], [17, 5], [19.5, 6], [20.5, 8.5], [20.5, 10]], [[3.5, 13], [9.5, 13]], [[14.5, 13], [20.5, 13]]],
+    dots: [[12, 13.4, 2.1]],
+  },
+  rest: {
+    lines: [[[4, 20.5], [20, 16.5]], [[4, 16.5], [20, 20.5]], [[12, 15], [9.6, 14], [8.2, 11.4], [9.3, 8.6], [10.8, 5], [12.3, 6.6], [12.9, 8.4], [14, 6.4], [15.4, 8.4], [15.8, 10.7], [14.6, 13.9], [12, 15]]],
+    dots: [],
+  },
+  boss: { lines: [[[4.5, 17.5], [3.5, 8], [8.3, 11.6], [12, 5.5], [15.7, 11.6], [20.5, 8], [19.5, 17.5], [4.5, 17.5]], [[5, 20.5], [19, 20.5]]], dots: [[12, 13.6, 1.4]] },
+  stairs: { lines: [[[3.5, 7], [8.5, 7], [8.5, 12], [13.5, 12], [13.5, 17], [20.5, 17]], [[18, 3.5], [18, 11]], [[15, 8.2], [18, 11.2], [21, 8.2]]], dots: [] },
+};
+export function signGeometry(type) {
+  const c = SIGN_COLORS[type] || 0xffffff, light = lerpHex(c, 0xffffff, 0.75), ink = 0x160c26;
+  const glyph = SIGN_GLYPHS[type] || SIGN_GLYPHS.stairs;
   const parts = [];
-  const part = (list, geo, color, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) => {
-    geo.scale(sx, sy, sz); if (rx) geo.rotateX(rx); if (ry) geo.rotateY(ry); if (rz) geo.rotateZ(rz); geo.translate(x, y, z);
-    list.push(paint(plain(geo), () => color));
-  };
-  const sub = (build, rz = 0, x = 0, y = 0) => {
-    const l = []; build(l);
-    const m = mergeGeometries(l, false); l.forEach((g) => g.dispose());
-    m.rotateZ(rz); m.translate(x, y, 0); parts.push(m);
-  };
-  // medallion backing and rim
-  part(parts, new THREE.CylinderGeometry(0.42, 0.42, 0.05, 6), 0x1a0f2e, 0, 0, -0.08, Math.PI / 2, 0, 0);
-  part(parts, new THREE.TorusGeometry(0.42, 0.03, 4, 6), c, 0, 0, -0.06);
-  const B = (l, w, h, d, x, y, z, color) => part(l, new THREE.BoxGeometry(w, h, d), color, x, y, z);
-  if (type === "combat") {
-    const sword = (l) => {
-      B(l, 0.09, 0.46, 0.04, 0, 0.1, 0, light);
-      part(l, new THREE.ConeGeometry(0.063, 0.12, 4), light, 0, 0.39, 0, 0, Math.PI / 4, 0, 1, 1, 0.45);
-      B(l, 0.28, 0.05, 0.07, 0, -0.14, 0, c);
-      B(l, 0.05, 0.14, 0.05, 0, -0.23, 0, dark);
-    };
-    sub(sword, -0.75, 0, -0.0); sub(sword, 0.75, 0, -0.0);
-  } else if (type === "elite") {
-    part(parts, new THREE.IcosahedronGeometry(0.2, 1), light, 0, 0.04, 0, 0, 0, 0, 1, 0.95, 0.8);
-    B(parts, 0.18, 0.1, 0.14, 0, -0.14, 0.02, light);
-    for (const s of [-1, 1]) {
-      part(parts, new THREE.OctahedronGeometry(0.06, 0), ink, s * 0.08, 0.04, 0.14, 0, 0, 0, 1, 1.2, 0.6);
-      part(parts, new THREE.ConeGeometry(0.06, 0.3, 5), c, s * 0.19, 0.24, 0, 0, 0, -s * 0.6);
-    }
-    part(parts, new THREE.ConeGeometry(0.03, 0.07, 3), ink, 0, -0.04, 0.16, Math.PI, 0, 0);
-    for (const s of [-0.06, -0.02, 0.02, 0.06]) B(parts, 0.015, 0.06, 0.02, s, -0.15, 0.1, ink);
-  } else if (type === "treasure") {
-    B(parts, 0.46, 0.2, 0.3, 0, -0.1, 0, c);
-    part(parts, new THREE.CylinderGeometry(0.15, 0.15, 0.46, 6, 1, false, 0, Math.PI), light, 0, 0.0, 0, 0, 0, Math.PI / 2, 1, 1, 1);
-    part(parts, new THREE.CylinderGeometry(0.15, 0.15, 0.46, 6, 1, false, 0, Math.PI), light, 0, 0, 0, 0, Math.PI, Math.PI / 2, 1, 1, 1);
-    for (const s of [-1, 1]) B(parts, 0.05, 0.36, 0.32, s * 0.15, -0.02, 0, dark);
-    B(parts, 0.07, 0.1, 0.02, 0, -0.04, 0.16, ink);
-    part(parts, new THREE.OctahedronGeometry(0.07, 0), 0xffffff, 0, 0.26, 0, 0, 0, 0, 1, 1.3, 1);
-  } else if (type === "rest") {
-    for (const s of [-1, 1]) part(parts, new THREE.IcosahedronGeometry(0.14, 1), light, s * 0.1, 0.1, 0, 0, 0, 0, 1, 1, 0.55);
-    part(parts, new THREE.ConeGeometry(0.235, 0.34, 6), light, 0, -0.08, 0, Math.PI, 0, 0, 1, 1, 0.55);
-    part(parts, new THREE.IcosahedronGeometry(0.05, 0), 0xffffff, -0.12, 0.15, 0.08);
-  } else if (type === "boss") {
-    part(parts, new THREE.CylinderGeometry(0.25, 0.23, 0.13, 8, 1, true), c, 0, -0.14, 0);
-    part(parts, new THREE.CylinderGeometry(0.255, 0.255, 0.03, 8), light, 0, -0.2, 0);
-    for (let n = 0; n < 5; n++) {
-      const a = (n / 5) * Math.PI * 2 + Math.PI / 5, r = 0.2;
-      const hgt = n === 0 ? 0.3 : 0.22;
-      part(parts, new THREE.ConeGeometry(0.06, hgt, 4), c, Math.sin(a) * r, -0.07 + hgt / 2, Math.cos(a) * r * 0.6);
-      part(parts, new THREE.IcosahedronGeometry(0.035, 0), light, Math.sin(a) * r, -0.07 + hgt, Math.cos(a) * r * 0.6);
-    }
-    part(parts, new THREE.OctahedronGeometry(0.05, 0), 0xffffff, 0, -0.14, 0.2);
-  } else { // stairs: arrow down
-    B(parts, 0.15, 0.26, 0.08, 0, 0.13, 0, c);
-    part(parts, new THREE.ConeGeometry(0.24, 0.26, 4), light, 0, -0.1, 0, Math.PI, Math.PI / 4, 0, 1, 1, 0.38);
-    B(parts, 0.44, 0.045, 0.08, 0, -0.27, 0, dark);
+  const flat = (geo, color, x, y, z, rz = 0) => { geo.rotateZ(rz); geo.translate(x, y, z); parts.push(paint(plain(geo), () => color)); };
+  flat(new THREE.CircleGeometry(0.47, 28), ink, 0, 0, 0);
+  flat(new THREE.RingGeometry(0.42, 0.5, 28), c, 0, 0, 0.01);
+  flat(new THREE.CircleGeometry(0.13, 3), c, 0, -0.6, 0.01, -Math.PI / 2); // pointer down at the door
+  const U = 0.6 / 24, SW = 2.2 * U, Z = 0.02, at = ([x, y]) => [(x - 12) * U, (12 - y) * U];
+  for (const line of glyph.lines) for (let i = 0; i < line.length; i++) {
+    const [x, y] = at(line[i]);
+    flat(new THREE.CircleGeometry(SW / 2, 8), light, x, y, Z); // round caps and joints
+    if (i) { const [px, py] = at(line[i - 1]); flat(new THREE.PlaneGeometry(Math.hypot(x - px, y - py), SW), light, (x + px) / 2, (y + py) / 2, Z, Math.atan2(y - py, x - px)); }
   }
+  for (const [dx, dy, r] of glyph.dots) { const [x, y] = at([dx, dy]); flat(new THREE.CircleGeometry(r * U, 12), light, x, y, Z); }
   const m = mergeGeometries(parts, false); parts.forEach((g) => g.dispose());
   return m;
 }
@@ -925,8 +902,9 @@ function addExit(world, ctx, spec, open) {
     signMat = new THREE.MeshBasicMaterial({ vertexColors: true });
     sign = new THREE.Mesh(sg, signMat);
     sign.name = "exit-sign";
-    sign.scale.setScalar(1.25);
-    sign.position.set(ex, stairs ? 1.75 : 2.55, ez);
+    sign.scale.setScalar(1.15);
+    sign.rotation.order = "YXZ"; sign.rotation.x = -0.45; // tipped back to face the camera, which looks down
+    sign.position.set(ex, stairs ? 1.75 : 2.3, ez);
     exitGroup.add(sign);
     ctx.ownedGeos.push(sg); ctx.ownedMats.push(signMat);
   }
@@ -944,8 +922,8 @@ function addExit(world, ctx, spec, open) {
   ctx.animFns.push((w, t) => {
     if (!exit.open) { sealMat.emissiveIntensity = 0.45 + 0.2 * Math.sin(t * 3); seal.rotation.y = 0; }
     if (sign) {
-      sign.position.y = (stairs ? 1.75 : 2.55) + Math.sin(t * 2 + phase) * 0.07;
-      sign.rotation.y = Math.PI / 4 + Math.sin(t * 0.9 + phase) * 0.3;
+      sign.position.y = (stairs ? 1.75 : 2.3) + Math.sin(t * 2 + phase) * 0.06;
+      sign.rotation.y = Math.PI / 4 + Math.sin(t * 0.9 + phase) * 0.1; // a slight sway; it always reads face-on
       signMat.color.setScalar(exit.open ? 1 : 0.5);
     }
   });

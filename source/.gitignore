@@ -2,3 +2,4 @@ node_modules
 dist
 tests/play
 tests/rig-demo.bundle.js
+tests/sign-demo.bundle.js

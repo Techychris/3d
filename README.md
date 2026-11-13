@@ -8,6 +8,9 @@ Browser game built with three.js r187. Fight through 3 floors of floating-island
 - Desktop: WASD to move, mouse to aim, J or left click to attack, Space or K to dodge, L to bash, Esc to pause.
 - Phone: play in landscape, with an on-screen stick and buttons.
 
+## What's in v1.4.1
+- Door signs redrawn: flat medallions that face the camera, with the same line icons the HUD uses (crossed swords, skull, chest, campfire, crown, stairs), a ring in the room type's colour and a pointer down at the door. See `screenshots/door-signs-v1.4.1.png`.
+
 ## What's in v1.4
 - Rebuilt character models with jointed limbs: the hero, skeleton grunt, skeleton knight, goblin archer, armoured brute, cultist, Stone Golem and Necromancer. See `screenshots/pose-sheet-v1.4.png`.
 - Real animation: characters walk with a leg and arm cycle, raise their weapon through the windup, strike, and recover. The hero swings the sword arm, punches with the shield on a bash and tucks into the dodge.
