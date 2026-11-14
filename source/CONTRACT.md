@@ -184,3 +184,11 @@ A model's look must be a pure function of `(t, pose)`; a missing pose is the idl
 - Other creatures read `accents(pose)` (`wind`, `hit`, `move`) and exaggerate their own parts.
 - Enemies set `e.act` and `e.k` in their brain; `updateActor` measures `e.mv` from how far the actor really moved. Bosses play "windup" for the first 60% of each attack and "attack" for the rest. The player maps dodge, bash and the two halves of the swing.
 - `tests/rig-demo.html?ids=<ids>&cols=0-7` renders a pose sheet (bundle `tests/rig-demo.entry.js` with esbuild first).
+
+## Classes, bosses, gear
+
+- `game/classes.js`: `CLASSES` (warrior, rogue, ranger, mage): model, stat mods, `attack` ("melee" or "shot" with a `shot` spec) and `skill` (see `SKILLS` in `player.js`). `createPlayer(world, heroId, cls)`. A run stores `cls`; camp stores the picked class in `meta.cls`.
+- `computeStats(itemIds, meta, mods)`: `mods` is a list of extra additive stat changes (the class, each equipped piece).
+- `bossOrder(seed)` picks three of the four bosses for a run. `createBoss(world, id, x, z, floor)` scales health and damage (`e.dmgMul`) to the floor.
+- `game/gear.js`: gear is stored as `"<id>:<rarity>"`. `run.inv = { equip: { weapon, armour, trinket }, bag: [], potions, bombs }`. Pure helpers: `rollGear`, `gearInfo`, `addGear`, `equip`, `unequip`, `dropGear`, `addConsumable`, `gearMods`, `normalizeInventory`.
+- Room features are walk-up, once per room (`run.roomDone`): the treasure chest after the guards are down, the campfire in a rest room.

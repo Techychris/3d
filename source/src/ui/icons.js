@@ -34,6 +34,10 @@ export const ICONS = {
   bleed: { label: "Bleed", body: "<path d=\"M12 3.5c3 4 6 7 6 10.5a6 6 0 0 1-12 0c0-3.5 3-6.5 6-10.5z\"/><path d=\"M9.3 14.5A2.7 2.7 0 0 0 12 17.2\"/>" },
   crit: { label: "Crit", body: "<circle cx=\"12\" cy=\"12\" r=\"6.8\"/><circle cx=\"12\" cy=\"12\" r=\"2\"/><path d=\"M12 2.5v4.2M12 17.3v4.2M2.5 12h4.2M17.3 12h4.2\"/>" },
   speed: { label: "Speed", body: "<path d=\"M13.5 2.8L5 13.6h6.2L10.3 21.2 19 10.2h-6.2z\"/>" },
+  bag: { label: "Inventory", body: "<path d=\"M5 9.5h14l1 9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z\"/><path d=\"M8.5 9.5V8a3.5 3.5 0 0 1 7 0v1.5\"/><path d=\"M9.5 13.5h5\"/>" },
+  potion: { label: "Health potion", body: "<path d=\"M9.5 3.5h5M10.5 3.5v4.2l-4 6.3a4.6 4.6 0 0 0 3.9 6.5h3.2a4.6 4.6 0 0 0 3.9-6.5l-4-6.3V3.5\"/><path d=\"M7.6 14.5h8.8\"/>" },
+  bomb: { label: "Fire bomb", body: "<circle cx=\"11\" cy=\"14\" r=\"6.5\"/><path d=\"M15.5 9.5l2-2\"/><path d=\"M17.5 7.5c.5-1.5 1.5-2.5 3-3\"/><path d=\"M8.5 12.5a3 3 0 0 1 2-1.8\"/>" },
+  trinket: { label: "Trinket", body: "<circle cx=\"12\" cy=\"14.5\" r=\"5.5\"/><path d=\"M9.5 9.6l-1.5-4h8l-1.5 4\"/><path d=\"M8 5.5l4-2 4 2\"/>" },
   summon: { label: "Summon", body: "<path d=\"M6 20.2V11a6 6 0 0 1 12 0v9.2l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4z\"/><circle cx=\"9.8\" cy=\"11.2\" r=\"1.1\"/><circle cx=\"14.2\" cy=\"11.2\" r=\"1.1\"/>" },
 };
 

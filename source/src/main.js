@@ -10,7 +10,8 @@ import { createMachine } from "./core/fsm.js";
 import { CLASSES, CLASS_IDS, classOf } from "./game/classes.js";
 import { GAME_FLOW, ROOM_FLOW } from "./game/flow.js";
 import { createPlayer } from "./game/player.js";
-import { spawnProjectile } from "./game/combat.js";
+import { spawnProjectile, damageEnemy } from "./game/combat.js";
+import * as GEAR from "./game/gear.js";
 import { createFx } from "./game/fx.js";
 import { createEnemy, ENEMY_TYPES } from "./game/enemies.js";
 import { createBoss, BOSS_TYPES, bossOrder } from "./game/bosses.js";
@@ -72,7 +73,7 @@ applySettings();
 // The class in play: the run's once a run exists, otherwise the one picked at camp.
 const heroClass = () => classOf(run ? run.cls : meta.cls);
 function setStats() {
-  world.stats = computeStats(run ? run.items : [], meta, [heroClass().mods]);
+  world.stats = computeStats(run ? run.items : [], meta, [heroClass().mods, ...(run ? GEAR.gearMods(run.inv) : [])]);
 }
 function hudUpdate() {
   if (!world.player) return;
@@ -83,6 +84,7 @@ function hudUpdate() {
     room: run ? Math.min(run.room, ROOMS_PER_FLOOR) : 0, rooms: ROOMS_PER_FLOOR + 1,
     path: run ? (run.path || []).concat(inBossRoom() ? [] : [run.roomType || "combat"]) : null,
     exitCount: room && room.exits ? room.exits.length : 1, saved: savedFlash > 0, boss: boss ? { name: boss.name, hp: Math.max(0, boss.hp), maxHp: boss.maxHp } : null,
+    potions: run ? run.inv.potions : 0, bombs: run ? run.inv.bombs : 0,
     skillCd: p.skillCd || 0, skillMax: p.skillMax || 7, dodgeCd: p.dodgeCd || 0, dodgeMax: p.dodgeMax || world.stats.dodgeCooldown,
     map: world.player ? { grid: world.grid, bounds: world.bounds, px: world.player.x, pz: world.player.z, exits: room && flow.is("run") && !world.enemies.some(e => !e.dead) ? (room.exits || []) : [], foes: world.enemies.filter(e => !e.dead) } : null,
     foes: flow.is("run", "dying") ? world.enemies.filter(e => !e.dead).length : null, touch: input.isTouchVisible ? input.isTouchVisible() : false,
@@ -217,9 +219,10 @@ function onRoomClear() {
   audio.play("door");
   const type = inBossRoom() ? "boss" : run.roomType;
   if (type === "elite") world.events.emit("currency", { amount: 20 });
-  if (type === "boss") ui.toast("Boss defeated: the way down is open");
+  const loot = type === "elite" || type === "boss";
+  if (loot) { if (type === "boss") GEAR.addConsumable(run.inv, "potions"); giveGear(type === "boss" ? 0.35 : 0.1); }
   else if (type === "rest") ui.toast(room.exits.length > 1 ? "Choose your path: walk into a portal" : "The portal is open");
-  else ui.toast(type === "treasure" ? (run.roomDone ? "Room clear" : "Guards down: walk to the chest to open it") : type === "elite" ? "Elite cleared: +20 embers" : room.exits.length > 1 ? "Room clear: choose a portal" : "Room clear: the portal is open");
+  else ui.toast(type === "treasure" ? (run.roomDone ? "Room clear" : "Guards down: walk to the chest to open it") : room.exits.length > 1 ? "Room clear: choose a portal" : "Room clear: the portal is open");
 }
 
 function onExit(i) {
@@ -274,7 +277,8 @@ function useRoomFeature(p) {
     room.chest.open();
     world.events.emit("currency", { amount: 30 });
     world.fx.burst(f.x, 0.8, f.z, 0xf0b860, 24, 1.6);
-    ui.toast("Chest opened: +30 embers");
+    GEAR.addConsumable(run.inv, "potions");
+    giveGear(0.25); // the toast names the piece; the chest also holds 30 embers and a potion
   } else {
     const heal = Math.round(Math.min(p.maxHp * 0.35, p.maxHp - p.hp));
     p.hp += heal;
@@ -317,9 +321,59 @@ world.events.on("player:death", ({ killer }) => { killerName = killer; flow.send
 // ---------------- pause / settings ----------------
 function pause() { if (flow.send("PAUSE")) showPausePanel(); }
 function showPausePanel() {
-  ui.showPause({ onResume: resume, onSettings: () => openSettings(showPausePanel), onQuit: () => { if (flow.is("paused")) { save(); enterHub(); } } });
+  ui.showPause({ onResume: resume, onInventory: showInventoryPanel, onSettings: () => openSettings(showPausePanel), onQuit: () => { if (flow.is("paused")) { save(); enterHub(); } } });
 }
 function resume() { if (flow.send("RESUME")) { ui.hideAll(); ui.hud.show(true); } }
+
+// ---------------- inventory: gear and consumables ----------------
+// The inventory screen is shown while "paused" (opening it from play pauses the game).
+function openInventory() { if (flow.is("run")) flow.send("PAUSE"); if (flow.is("paused")) showInventoryPanel(); }
+function showInventoryPanel() {
+  const inv = run.inv, s = world.stats, view = (k) => { const g = GEAR.gearInfo(k); return g && { name: g.name, rarity: g.rarity, effect: g.effect }; };
+  const changed = (ok) => { if (!ok) return ui.toast("Your bag is full"); setStats(); world.player.syncMaxHp(world.stats.maxHp); audio.play("pickup"); save(); showInventoryPanel(); };
+  ui.showInventory({
+    equip: GEAR.SLOTS.map(slot => ({ slot, slotName: GEAR.SLOT_NAMES[slot], item: view(inv.equip[slot]) })),
+    bag: inv.bag.map(view), bagSize: GEAR.BAG_SIZE,
+    consumables: Object.entries(GEAR.CONSUMABLES).map(([k, c]) => ({ ...c, count: inv[k] })),
+    stats: [["Class", heroClass().name], ["Max health", String(Math.round(s.maxHp))], ["Damage", String(Math.round(s.damage))], ["Attacks per second", s.attackRate.toFixed(1)],
+      ["Move speed", s.moveSpeed.toFixed(1)], ["Crit chance", Math.round(s.critChance * 100) + "%"]],
+  }, {
+    onEquip: (i) => changed(GEAR.equip(inv, i)), onUnequip: (slot) => changed(GEAR.unequip(inv, slot)), onDrop: (i) => changed(GEAR.dropGear(inv, i)),
+    onClose: resume,
+  });
+}
+// Drops go straight into the bag; with a full bag the piece is scrapped for embers.
+function giveGear(bonus) {
+  const g = GEAR.gearInfo(GEAR.rollGear(world.rng, run.floor, bonus));
+  if (GEAR.addGear(run.inv, g.key)) ui.toast(`Found ${g.name} (${g.effect}). Open your bag to equip it`);
+  else { world.events.emit("currency", { amount: GEAR.SCRAP_EMBERS }); ui.toast(`Bag full: ${g.name} scrapped for ${GEAR.SCRAP_EMBERS} embers`); }
+}
+function giveConsumable(kind) { if (GEAR.addConsumable(run.inv, kind)) ui.toast(`Picked up a ${GEAR.CONSUMABLES[kind].name.toLowerCase()}`); }
+function useItem(kind) {
+  const p = world.player;
+  if (!flow.is("run") || !p || p.dead || run.inv[kind] < 1) return;
+  if (kind === "potions") {
+    if (p.hp >= p.maxHp) return ui.toast("Already at full health");
+    p.heal(p.maxHp * GEAR.POTION_HEAL);
+    world.fx.burst(p.x, 0.6, p.z, 0x6fe0c0, 18, 1.4);
+  } else {
+    for (const e of world.enemies) if (!e.dead && Math.hypot(e.x - p.x, e.z - p.z) <= GEAR.BOMB_RADIUS + e.radius) damageEnemy(world, e, GEAR.BOMB_DAMAGE, { heavy: true });
+    world.fx.burst(p.x, 0.5, p.z, 0xffb060, 60, 7); world.shake(0.35); audio.play("slam");
+  }
+  run.inv[kind] -= 1; audio.play("pickup"); save();
+}
+ui.hud.onUse(useItem); ui.hud.onBag(openInventory);
+addEventListener("keydown", (e) => {
+  if (e.repeat || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+  const k = e.key.toLowerCase();
+  if (k === "q") useItem("potions"); else if (k === "e") useItem("bombs"); else if (k === "i" || k === "tab") { e.preventDefault(); if (flow.is("paused")) resume(); else openInventory(); }
+});
+// Ordinary foes sometimes drop a consumable.
+world.events.on("enemy:death", ({ enemy }) => {
+  if (!run || enemy.boss) return;
+  const r = Math.random();
+  if (r < 0.07) giveConsumable("potions"); else if (r < 0.11) giveConsumable("bombs");
+});
 const togglePause = () => (flow.is("paused") ? resume() : pause());
 function openSettings(back) {
   ui.showSettings(meta.settings, {

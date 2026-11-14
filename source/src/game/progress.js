@@ -1,6 +1,7 @@
 // Meta progress, run state and save codes. Pure logic, no three.js.
 import { hashString } from "../core/rng.js";
 import { CLASS_IDS, classOf } from "./classes.js";
+import { newInventory, normalizeInventory } from "./gear.js";
 
 const KEY = "dusk-roguelite-v1";
 const SAVE_VERSION = 1;
@@ -65,6 +66,7 @@ function normalizeRun(r) {
     hp: r.hp === null || r.hp === undefined ? null : num(r.hp, null, 0),
     hero: typeof r.hero === "string" ? r.hero : "hero-warrior", cls: CLASS_IDS.includes(r.cls) ? r.cls : "warrior",
     startedAt: num(r.startedAt, 0),
+    inv: normalizeInventory(r.inv),
     daily: !!r.daily, roomDone: !!r.roomDone, hitsTaken: Math.floor(num(r.hitsTaken, 0, 0)), embers: Math.floor(num(r.embers, 0, 0)),
     roomType: ROOM_KINDS.includes(r.roomType) ? r.roomType : "combat", path: strs(r.path).filter((t) => ROOM_KINDS.includes(t)).slice(0, 12),
   };
@@ -82,7 +84,7 @@ export function resetProgress() {
 }
 
 export function newRun(seed, cls = "warrior") {
-  return { seed, floor: 1, room: 0, items: [], runCurrency: 0, hp: null, hero: classOf(cls).hero, cls: classOf(cls).id, startedAt: Date.now(), daily: false, roomDone: false, hitsTaken: 0, embers: 0, roomType: "combat", path: [] };
+  return { seed, floor: 1, room: 0, items: [], runCurrency: 0, hp: null, hero: classOf(cls).hero, cls: classOf(cls).id, inv: newInventory(), startedAt: Date.now(), daily: false, roomDone: false, hitsTaken: 0, embers: 0, roomType: "combat", path: [] };
 }
 
 export function upgradeCost(meta, which) {

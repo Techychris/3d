@@ -189,3 +189,33 @@
 .dusk-ui button.cls{min-width:104px}
 .dusk-ui button.cls.on{border-color:var(--amber);color:var(--title);background:var(--ready-wash)}
 .dusk-ui .clsblurb{min-height:2.6em;max-width:46ch;margin:0 auto;text-align:center}
+/* belt: quick-use consumables and the bag button (HUD) */
+.dusk-ui .belt{display:flex;gap:var(--space-4);margin-top:var(--space-8)}
+.dusk-ui .beltbtn{display:inline-flex;align-items:center;gap:var(--space-4);min-height:32px;padding:0 var(--space-8);border-radius:var(--radius-sm);border:1px solid var(--meter-edge);background:var(--plate);color:var(--text);font-size:.8125rem;font-weight:600}
+.dusk-ui .beltbtn .ico{width:18px;height:18px}
+.dusk-ui .beltbtn kbd{font:inherit;font-size:.6875rem;font-weight:400;padding:0 var(--space-4);border-radius:var(--radius-xs);border:1px solid var(--key-edge);background:var(--key-fill)}
+.dusk-ui .beltbtn:disabled{opacity:.45}
+.dusk-ui .hud.touch .beltbtn kbd{display:none}
+/* inventory screen */
+.dusk-ui .inventory{width:min(860px,100%);text-align:left}
+.dusk-ui .inventory .head{justify-content:space-between;align-items:center}
+.dusk-ui .inventory h3{font-size:.8125rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:var(--space-8) 0 0}
+.dusk-ui .invcols{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:var(--space-16)}
+.dusk-ui .baggrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-8)}
+.dusk-ui .eqslot{display:grid;grid-template-columns:96px minmax(0,1fr);gap:var(--space-8);align-items:center}
+.dusk-ui .eqhead{display:flex;align-items:center;gap:var(--space-8);font-weight:600}
+.dusk-ui .gear{border:1px solid var(--line);border-left:3px solid var(--muted);border-radius:var(--radius-md);padding:var(--space-8);background:var(--plate);pointer-events:auto}
+.dusk-ui .gear.rare{border-left-color:var(--magic)}
+.dusk-ui .gear.epic{border-left-color:var(--amber)}
+.dusk-ui .gear.empty{border-left-color:var(--line);font-size:.875rem}
+.dusk-ui .gear .gname{font-weight:600}
+.dusk-ui .gear.rare .gname{color:var(--magic)}
+.dusk-ui .gear.epic .gname{color:var(--amber)}
+.dusk-ui .gear .geffect{font-size:.8125rem;min-height:1.3em}
+.dusk-ui .gear .gact{gap:var(--space-4);margin-top:var(--space-4);justify-content:flex-start}
+.dusk-ui button.small{min-height:32px;padding:0 var(--space-12);font-size:.8125rem}
+.dusk-ui .consum{display:flex;align-items:center;gap:var(--space-8);font-size:.875rem;flex-wrap:wrap}
+.dusk-ui .consum kbd{font:inherit;font-size:.75rem;padding:0 var(--space-4);border-radius:var(--radius-xs);border:1px solid var(--key-edge);background:var(--key-fill)}
+@media (max-width:700px){.dusk-ui .invcols{grid-template-columns:1fr}}
+@media (max-height:480px){.dusk-ui .belt{margin-top:var(--space-4)}.dusk-ui .beltbtn{min-height:30px;padding:0 6px}.dusk-ui .inventory h3{margin-top:var(--space-4)}.dusk-ui .gear{padding:var(--space-4) var(--space-8)}}
+.dusk-ui .hud.touch .beltbtn{min-height:38px;min-width:44px;justify-content:center}

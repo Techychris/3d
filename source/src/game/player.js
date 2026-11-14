@@ -67,7 +67,7 @@ export function createPlayer(world, heroId = "hero-warrior", cls = CLASSES.warri
     x: 0, z: 0, yaw: 0, hp: maxHp, maxHp, radius: 0.3, group, invuln: 0, dodgeCd: 0, skillCd: 0, shield: 0, dead: false, name: "You",
     // extras (see exports): read-only for other modules
     get dodging() { return act.is("dodge"); }, slowMul: 1, skillMax: sk.cd, dodgeMax: stats0.dodgeCooldown || 0.8,
-    update, dispose, heal,
+    update, dispose, heal, syncMaxHp,
   };
 
   let visYaw = 0, atkCd = 0;
@@ -87,6 +87,12 @@ export function createPlayer(world, heroId = "hero-warrior", cls = CLASSES.warri
     player.hp += a;
     world.events.emit("player:heal", { amount: a });
     if (world.fx) world.fx.number(player.x, 1.3, player.z, "+" + Math.round(a), COLORS.heal);
+  }
+
+  // Gear swapped from the inventory: take the new max health without the heal that item pickups give.
+  function syncMaxHp(v) {
+    player.maxHp = v; lastMaxHp = v;
+    player.hp = Math.min(player.hp, v);
   }
 
   function doSwing(st) {

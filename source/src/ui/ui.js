@@ -49,7 +49,17 @@ export function createUI(rootEl) {
     return { el: h("div", { class: "slot", "aria-label": label + " (" + key + ")" }, f, iconEl(icon), k, t), f, t, label };
   };
   const dodgeSlot = mkSlot("Dodge", "Space", "dodge"), skillSlot = mkSlot("Bash", "L", "bash");
-  const hudTL = h("div", { class: "hud-tl", "data-component": "block", "data-name": "Health and abilities" }, hpBar, h("div", { class: "slots" }, dodgeSlot.el, skillSlot.el));
+  // belt: quick-use consumables and the bag
+  let useHandler = null, bagHandler = null;
+  const mkBelt = (kind, icon, label, key) => {
+    const n = h("b", { text: "0" });
+    const el = h("button", { type: "button", class: "beltbtn", "data-component": "button", "aria-label": label, onclick: () => safe(useHandler, kind) }, iconEl(icon), n, h("kbd", { text: key }));
+    return { el, n, label };
+  };
+  const potionBtn = mkBelt("potions", "potion", "Health potion", "Q"), bombBtn = mkBelt("bombs", "bomb", "Fire bomb", "E");
+  const bagBtn = h("button", { type: "button", class: "beltbtn bagbtn", "data-component": "button", "aria-label": "Inventory", onclick: () => safe(bagHandler) }, iconEl("bag"), h("kbd", { text: "I" }));
+  const setBelt = (b, key, n) => { if (last[key] !== n) { last[key] = n; b.n.textContent = String(n); b.el.disabled = n < 1; b.el.setAttribute("aria-label", b.label + ", " + n + " left"); } };
+  const hudTL = h("div", { class: "hud-tl", "data-component": "block", "data-name": "Health and abilities" }, hpBar, h("div", { class: "slots" }, dodgeSlot.el, skillSlot.el), h("div", { class: "belt" }, potionBtn.el, bombBtn.el, bagBtn));
   const floorText = h("span", { class: "fl" });
   const pips = h("span", { class: "pips", "aria-hidden": "true" });
   const foesText = h("span", { class: "foes" });
@@ -114,6 +124,8 @@ export function createUI(rootEl) {
   const hudApi = {
     show(v) { hud.hidden = !v; },
     onPause(fn) { pauseHandler = fn; },
+    onUse(fn) { useHandler = fn; },
+    onBag(fn) { bagHandler = fn; },
     hurt(strength = 1) {
       hurt.style.setProperty("--a", String(Math.min(1, 0.35 + 0.65 * strength)));
       hurt.classList.remove("on"); void hurt.offsetWidth; hurt.classList.add("on");
@@ -129,6 +141,7 @@ export function createUI(rootEl) {
       hpBar.setAttribute("aria-valuemax", Math.ceil(maxHp));
       hpBar.setAttribute("aria-valuenow", Math.ceil(hp));
       setTxt(curNum, "cur", String(s.currency | 0));
+      setBelt(potionBtn, "potions", s.potions | 0); setBelt(bombBtn, "bombs", s.bombs | 0);
       drawMap(s.map);
       // floor progress: one pip per room, boss last
       const rooms = s.rooms || 0, room = s.room || 0, isBoss = rooms && room >= rooms - 1;
@@ -288,7 +301,33 @@ export function createUI(rootEl) {
   function showPause(o = {}) {
     keyHandler = escHandler = null;
     open(panel("center", "Paused", h("h2", { text: "Paused" }),
-      btn("Resume", () => safe(o.onResume), "primary big", { icon: "play" }), btn("Settings", () => safe(o.onSettings), "", { icon: "settings" }), btn("Quit to camp", () => safe(o.onQuit), "", { icon: "back" })));
+      btn("Resume", () => safe(o.onResume), "primary big", { icon: "play" }), btn("Inventory", () => safe(o.onInventory), "", { icon: "bag" }), btn("Settings", () => safe(o.onSettings), "", { icon: "settings" }), btn("Quit to camp", () => safe(o.onQuit), "", { icon: "back" })));
+  }
+
+  // ---------- inventory ----------
+  // d: { equip: [{ slot, slotName, item | null }], bag: [item], bagSize, consumables: [{ name, desc, icon, key, count }], stats: [[label, value]] }
+  // item: { name, rarity, effect }
+  function showInventory(d = {}, o = {}) {
+    keyHandler = null;
+    escHandler = () => safe(o.onClose);
+    const gear = (g, ...actions) => h("div", { class: "gear " + g.rarity, "data-component": "card" },
+      h("div", { class: "gname", text: g.name }), h("div", { class: "muted geffect", text: g.effect }), h("div", { class: "row gact" }, ...actions));
+    const slotIcon = { weapon: "attack", armour: "shield", trinket: "trinket" };
+    const equipped = (d.equip || []).map((e) => h("div", { class: "eqslot" },
+      h("div", { class: "eqhead" }, iconEl(slotIcon[e.slot]), h("span", { text: e.slotName })),
+      e.item ? gear(e.item, btn("Unequip", () => safe(o.onUnequip, e.slot), "small")) : h("div", { class: "gear empty muted", text: "Empty" })));
+    const bag = d.bag || [];
+    const cells = bag.map((g, i) => gear(g, btn("Equip", () => safe(o.onEquip, i), "small primary"), btn("Drop", () => safe(o.onDrop, i), "small")));
+    open(panel("inventory", "Inventory",
+      h("div", { class: "row head" }, h("h2", { text: "Inventory" }), btn("Close", () => safe(o.onClose), "", { icon: "close" })),
+      h("div", { class: "invcols" },
+        h("div", { class: "stack" }, h("h3", { text: "Equipped" }), ...equipped,
+          h("h3", { text: "Consumables" }),
+          ...(d.consumables || []).map((c) => h("div", { class: "consum" }, iconEl(c.icon), h("span", { text: c.name + " x" + c.count }), h("kbd", { text: c.key }), h("span", { class: "muted", text: c.desc })))),
+        h("div", { class: "stack" }, h("h3", { text: "Bag (" + bag.length + " of " + (d.bagSize | 0) + ")" }),
+          bag.length ? h("div", { class: "baggrid" }, ...cells) : h("p", { class: "muted", text: "Empty. Chests, elite rooms and bosses drop gear." }),
+          h("h3", { text: "Stats" }),
+          h("div", { class: "stats" }, ...(d.stats || []).map(([k, v]) => h("div", { class: "stat", "data-component": "stat" }, h("span", { text: k }), h("span", { text: v }))))))));
   }
 
   // ---------- settings ----------
@@ -346,7 +385,7 @@ export function createUI(rootEl) {
   let toastT = 0;
   return {
     hud: hudApi,
-    showHub, showShrine, showRecap, showPause, showSettings, showCodex,
+    showHub, showShrine, showRecap, showPause, showSettings, showCodex, showInventory,
     showRotate(v) { rotate.hidden = !v; },
     showLoading(t) { loading.hidden = t == null || t === false; if (t) loadText.textContent = t; },
     toast(text) {
