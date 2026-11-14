@@ -1217,7 +1217,7 @@ export function buildRoom(world, { floor = 1, index = 0, boss = false, seed = 1,
     playerStart: { x: L.start.x, z: L.start.z },
     spawns, exits, exit: exits[0],
     cameraBounds: { ...L.bounds }, layout: L,
-    chest, roomType: rt,
+    chest, campfire: L.campfire ? { x: L.campfire.x, z: L.campfire.z } : null, roomType: rt,
     floor: f, boss: !!boss, bossId: boss ? def.boss : null, bossSpawn: boss ? { x: L.bossSpawn.x, z: L.bossSpawn.z } : null,
   });
 }

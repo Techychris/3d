@@ -290,7 +290,7 @@ describe("newRun", () => {
     try {
       assert.deepEqual(P.newRun("seed-7"), {
         seed: "seed-7", floor: 1, room: 0, items: [], runCurrency: 0, hp: null, hero: "hero-warrior", cls: "warrior",
-        startedAt: 1234, daily: false, hitsTaken: 0, embers: 0, roomType: "combat", path: [],
+        startedAt: 1234, daily: false, roomDone: false, hitsTaken: 0, embers: 0, roomType: "combat", path: [],
       });
     } finally {
       t.mock.timers.reset();

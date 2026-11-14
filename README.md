@@ -8,6 +8,10 @@ Browser game built with three.js r187. Fight through 3 floors of floating-island
 - Desktop: WASD to move, mouse to aim, J or left click to attack, Space or K to dodge, L to bash, Esc to pause.
 - Phone: play in landscape, with an on-screen stick and buttons.
 
+## What's in v1.5.1
+- Treasure rooms: the chest no longer opens by itself. Clear the guards, then walk up to the chest to open it. Touching it early says it is sealed.
+- Rest rooms: you now heal by walking up to the campfire (35% of max health, once), not on entering the room.
+
 ## What's in v1.5
 - Four classes, picked at camp: Warrior (sword and shield, Bash), Rogue (twin daggers, fast, crits often, Flurry hits all around), Ranger (bow, fights from range, Volley fires five arrows), Mage (staff, heavy bolts, Nova freezes everything close). Each has its own jointed model and animations.
 - A saved run keeps its class. Camp now shows Resume run and New run when a run is saved.

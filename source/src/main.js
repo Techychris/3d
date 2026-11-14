@@ -42,7 +42,7 @@ const audio = createAudio();
 world.audio = audio;
 world.fx = createFx(world);
 const ui = createUI(document.getElementById("ui"));
-window.__game = { world, get state() { return flow.state; }, get run() { return run; }, get meta() { return meta; } }; // test hook
+window.__game = { world, get state() { return flow.state; }, get run() { return run; }, get meta() { return meta; }, get room() { return room; } }; // test hook
 
 let meta = P.loadMeta();
 // The game's top-level machine: every screen the game can be on and every way to move between them.
@@ -175,17 +175,13 @@ function enterRoom() {
     audio.play("boss"); ui.toast(`${BOSS_NAMES[id]}`);
   } else {
     for (const s of room.spawns) createEnemy(world, s.type, s.x, s.z);
-    if (type === "rest") {
-      const heal = Math.round(p.maxHp * 0.35);
-      p.hp = Math.min(p.maxHp, p.hp + heal);
-      world.events.emit("player:heal", { amount: heal });
-      if (world.fx) world.fx.burst(p.x, 0.6, p.z, 0x6fe0c0, 18, 1.2);
-      ui.toast(`Rest: the campfire restores ${heal} health`);
-    } else if (type === "elite") ui.toast("Elite room: tougher foes, better reward");
-    else if (type === "treasure") ui.toast("Treasure room: clear the guards to open the chest");
+    if (type === "rest") ui.toast(run.roomDone ? "Rest room: you have already rested here" : "Rest room: walk to the campfire to heal");
+    else if (type === "elite") ui.toast("Elite room: tougher foes, better reward");
+    else if (type === "treasure") ui.toast("Treasure room: clear the guards, then open the chest");
+    if (run.roomDone && room.chest) room.chest.open(); // resumed after the chest was already taken
   }
   for (let i = 0; i < (world.stats.summons || 0); i++) summons.push(makeSummon(i));
-  roomFlow = createMachine(ROOM_FLOW, "fight"); roomAge = 0; hinted = -1;
+  roomFlow = createMachine(ROOM_FLOW, "fight"); roomAge = 0; hinted = -1; sealedHint = false;
   audio.startMusic(type === "rest" ? "hub" : "combat");
   save();
 }
@@ -223,14 +219,9 @@ function onRoomClear() {
   audio.play("door");
   const type = inBossRoom() ? "boss" : run.roomType;
   if (type === "elite") world.events.emit("currency", { amount: 20 });
-  if (type === "treasure") {
-    world.events.emit("currency", { amount: 30 });
-    if (room.chest && room.chest.open) room.chest.open();
-    if (world.fx && room.chest) world.fx.burst(room.chest.x, 0.8, room.chest.z, 0xf0b860, 24, 1.6);
-  }
   if (type === "boss") ui.toast("Boss defeated: the way down is open");
   else if (type === "rest") ui.toast(room.exits.length > 1 ? "Choose your path: walk into a portal" : "The portal is open");
-  else ui.toast(type === "treasure" ? "Chest opened: +30 embers" : type === "elite" ? "Elite cleared: +20 embers" : room.exits.length > 1 ? "Room clear: choose a portal" : "Room clear: the portal is open");
+  else ui.toast(type === "treasure" ? (run.roomDone ? "Room clear" : "Guards down: walk to the chest to open it") : type === "elite" ? "Elite cleared: +20 embers" : room.exits.length > 1 ? "Room clear: choose a portal" : "Room clear: the portal is open");
 }
 
 function onExit(i) {
@@ -238,7 +229,7 @@ function onExit(i) {
   if (inBossRoom()) {
     if (run.floor >= FLOORS_PER_RUN) return endRun(true);
     go("ADVANCE");
-    run.floor += 1; run.room = 0; run.roomType = "combat"; run.path = [];
+    run.floor += 1; run.room = 0; run.roomType = "combat"; run.path = []; run.roomDone = false;
     run.hp = Math.min(world.stats.maxHp, run.hp + world.stats.maxHp * 0.3); // breather between floors
     return enterRoom();
   }
@@ -269,7 +260,33 @@ function openShrine(rerolled = false, freeReroll = false) {
     onSkip: () => { if (!flow.send("CHOSEN")) return; meta.currency += SKIP_REWARD; runEmbers += SKIP_REWARD; audio.play("coin"); nextRoom(); },
   });
 }
-function nextRoom() { run.room += 1; run.embers = runEmbers; enterRoom(); }
+function nextRoom() { run.room += 1; run.embers = runEmbers; run.roomDone = false; enterRoom(); }
+
+// Treasure chests and rest campfires are used by walking up to them, once per room.
+let sealedHint = false;
+function useRoomFeature(p) {
+  if (run.roomDone) return;
+  const chest = room.roomType === "treasure", f = chest ? room.chest : room.roomType === "rest" ? room.campfire : null;
+  if (!f || Math.hypot(p.x - f.x, p.z - f.z) > 1.5) return;
+  if (chest && !roomFlow.is("clear")) {
+    if (!sealedHint) { sealedHint = true; ui.toast("The chest is sealed: clear the guards first"); }
+    return;
+  }
+  if (chest) {
+    room.chest.open();
+    world.events.emit("currency", { amount: 30 });
+    world.fx.burst(f.x, 0.8, f.z, 0xf0b860, 24, 1.6);
+    ui.toast("Chest opened: +30 embers");
+  } else {
+    const heal = Math.round(Math.min(p.maxHp * 0.35, p.maxHp - p.hp));
+    p.hp += heal;
+    world.events.emit("player:heal", { amount: heal });
+    world.fx.burst(p.x, 0.6, p.z, 0x6fe0c0, 18, 1.2);
+    audio.play("pickup");
+    ui.toast(heal > 0 ? `You rest by the fire: +${heal} health` : "You rest by the fire. Already at full health");
+  }
+  run.roomDone = true; save();
+}
 
 function endRun(won) {
   go(won ? "WIN" : "LOSE");
@@ -416,6 +433,7 @@ function frame() {
     if (flow.is("run")) {
       if (world.enemies.length === 0 && roomFlow.send("CLEAR")) onRoomClear();
       roomAge += sdt;
+      if (p && !p.dead) useRoomFeature(p);
       if (roomFlow.is("clear") && p) {
         for (let i = 0; i < room.exits.length; i++) {
           const ex = room.exits[i], d = Math.hypot(p.x - ex.x, p.z - ex.z);
