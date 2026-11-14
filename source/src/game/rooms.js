@@ -208,10 +208,11 @@ function shapeBoss(rng) {
   return { k, W, H };
 }
 
-// Two to four small islands on a slot grid (one or two columns by one or two rows), joined by 2-wide bridges.
+// Two to four small islands on a slot grid (one or two columns by one or two rows), joined by bridges 2 tiles wide
+// and 3 to 6 tiles long.
 function shapeIslands(rng) {
   const cols = rng() < 0.75 ? 2 : 1, rows = cols === 1 ? 2 : rng.int(1, 2);
-  const gx = rng.int(2, 3), gz = 2;
+  const gx = rng.int(4, 6), gz = rng.int(3, 5); // gap between islands = bridge length, in tiles
   const ws = cols === 2 ? [rng.int(5, 7), rng.int(5, 7)] : [rng.int(9, 11)];
   const hs = rows === 2 ? [rng.int(4, 5), rng.int(5, 6)] : [rng.int(7, 9)];
   const W = ws[0] + (cols === 2 ? gx + ws[1] : 0), H = hs[0] + (rows === 2 ? gz + hs[1] : 0);

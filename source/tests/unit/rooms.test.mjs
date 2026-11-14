@@ -64,7 +64,7 @@ describe("generateLayout (ported from tests/rooms-gen.test.mjs)", () => {
       total++;
       const tag = `f${floor} ${boss ? "boss" : "room"} s${s}`;
       if (boss) assert.ok(L.w >= 11 && L.w <= 13 && L.h >= 9 && L.h <= 10, tag + " boss size");
-      else assert.ok(L.w >= 9 && L.w <= 17 && L.h >= 7 && L.h <= 13, tag + " size"); // bridged islands reach 17 x 13
+      else assert.ok(L.w >= 9 && L.w <= 20 && L.h >= 7 && L.h <= 16, tag + " size"); // bridged islands reach 20 x 16
       sizes.add(L.w + "x" + L.h);
 
       // Every floor cell is reachable from the start (pits and stubs are holes).
@@ -733,7 +733,7 @@ describe("bridged islands", () => {
   }
   const forced = (s, floor = 2, rt = "combat") => generateLayout("isle" + s, floor, false, 1 + (s % 2), 1 + (s % 4), rt, { isles: true });
 
-  it("splits the room into 2 to 4 islands that only bridges connect, with every bridge 2 wide and at least 2 long", () => {
+  it("splits the room into 2 to 4 islands that only bridges connect, with every bridge 2 wide and 3 to 6 long", () => {
     const counts = new Set();
     for (let s = 0; s < 80; s++) {
       const L = forced(s, 1 + (s % 3));
@@ -752,7 +752,15 @@ describe("bridged islands", () => {
         assert.ok(run.every((k) => k === 1 || k === 4), tag + " bridge run ends on floor");
         assert.deepEqual([...side].sort(), [0, 4], tag + " bridge is exactly two lanes wide");
       }
-      assert.ok(bridges >= 4 * (n - 1), `${tag}: ${bridges} bridge cells for ${n} islands`);
+      assert.ok(bridges >= 6 * (n - 1), `${tag}: ${bridges} bridge cells for ${n} islands (2 lanes, at least 3 long)`);
+      // Every bridge lane runs 3 to 6 cells between its two islands.
+      for (let j = 0; j < L.h; j++) for (let i = 0; i < L.w; i++) {
+        if (kindAt(L, i, j) !== 4) continue;
+        const alongX = kindAt(L, i - 1, j) !== 0 && kindAt(L, i + 1, j) !== 0, [di, dj] = alongX ? [1, 0] : [0, 1];
+        let len = 1;
+        for (const d of [-1, 1]) for (let a = i + d * di, b = j + d * dj; kindAt(L, a, b) === 4; a += d * di, b += d * dj) len++;
+        assert.ok(len >= 3 && len <= 6, `${tag}: bridge run of ${len}`);
+      }
       // Without bridges the islands are cut off from each other; with them everything is reachable (checked by reach).
       const r = reachFrom({ ...L, obstacles: [] }, L.start.i, L.start.j);
       for (let c = 0; c < L.w * L.h; c++) if (L.kind[c] === 1 || L.kind[c] === 4) assert.ok(r[c], tag + " unreachable cell");
