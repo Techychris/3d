@@ -8,6 +8,9 @@ Browser game built with three.js r187. Fight through 3 floors of floating-island
 - Desktop: WASD to move, mouse to aim, J or left click to attack, Space or K to dodge, L to bash, Esc to pause.
 - Phone: play in landscape, with an on-screen stick and buttons.
 
+## What's in v1.7.2
+- Every enemy and boss has a red aura on the ground beneath it (a soft disc and a bright ring sized to its body), so foes are easy to pick out. It stays on the floor when the enemy hops or flies.
+
 ## What's in v1.7.1
 - Longer bridges: islands in a bridged room now sit 4 to 6 tiles apart side to side and 3 to 5 tiles apart front to back (was 2 to 3 and 2). Bridged rooms can be up to 20 by 16 tiles; the camera follows you across.
 

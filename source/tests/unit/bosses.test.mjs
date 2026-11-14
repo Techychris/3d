@@ -547,3 +547,24 @@ test("actors stacked on exactly the same spot are pushed apart to both sides", a
   es[0].update(w, 1 / 60);
   assert.ok(es.some((e) => e.x > 0) && es.some((e) => e.x < 0));
 });
+
+test("every enemy and boss has a red aura sized to its body that stays on the ground when the body leaves it", async () => {
+  const { createEnemy } = await import("../../src/game/enemies.js");
+  const w = makeWorld({ withPlayer: true });
+  w.player.x = 9; w.player.z = 9;
+  const small = createEnemy(w, "slimeling", 0, 0), big = createBoss(w, "stone-golem", 3, 0);
+  for (const e of [small, big]) {
+    const aura = e.group.children.find((c) => c.name === "aura");
+    assert.equal(aura, e.aura);
+    assert.equal(aura.children.length, 2);
+    for (const m of aura.children) { assert.equal(m.material.color.getHex(), 0xff3d5a); assert.equal(m.material.transparent, true); assert.equal(m.material.depthWrite, false); }
+  }
+  const ringOuter = (e) => e.aura.children[1].geometry.parameters.outerRadius;
+  assert.ok(ringOuter(big) > ringOuter(small) * 3, "a boss's ring is much wider");
+  small.brain = null; small.y = 1.2; small.sy = 1.3; small.sx = 0.8;
+  small.update(w, 1 / 60);
+  const pos = new THREE.Vector3(); small.aura.getWorldPosition(pos);
+  assert.ok(Math.abs(pos.y - 0.03) < 1e-6, "the aura is on the floor although the body is in the air");
+  const sc = new THREE.Vector3(); small.aura.getWorldScale(sc);
+  assert.ok(Math.abs(sc.x / small.baseScale - 1) <= 0.081, "the squash of the body does not squash the aura");
+});

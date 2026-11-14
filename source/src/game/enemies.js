@@ -82,6 +82,15 @@ export function createActor(world, cfg) {
   const group = new world.THREE.Group();
   group.rotation.order = "YXZ";
   group.add(asset.group);
+  // Red aura on the ground under every hostile actor: a soft disc and a bright ring, sized to its body.
+  const T = world.THREE, r = cfg.radius;
+  const auraMat = (opacity) => new T.MeshBasicMaterial({ color: AURA_COLOR, transparent: true, opacity, blending: T.AdditiveBlending, depthWrite: false, toneMapped: false });
+  const aura = new T.Group(); aura.name = "aura"; aura.position.y = 0.03;
+  const glow = new T.Mesh(new T.CircleGeometry(r * 1.9, 24).rotateX(-Math.PI / 2), auraMat(0.16));
+  const ring = new T.Mesh(new T.RingGeometry(r * 1.45, r * 1.7, 28).rotateX(-Math.PI / 2), auraMat(0.55));
+  glow.name = ring.name = "aura"; ring.position.y = 0.005;
+  aura.add(glow, ring);
+  group.add(aura);
   world.add(group);
   const e = {
     type: cfg.type, name: cfg.name, maxHp: cfg.hp, x: cfg.x, z: cfg.z, y: 0, radius: cfg.radius,
@@ -89,7 +98,7 @@ export function createActor(world, cfg) {
     dead: false, status: { burnT: 0, burnDps: 0, slowT: 0, slowPct: 0, frozenT: 0, bleedT: 0, bleedDps: 0, stunT: 0 },
     speedMul: 1, group, asset, world, yaw: cfg.yaw || 0, pitch: 0, sx: 1, sy: 1, baseScale: cfg.scale || 1,
     state: "idle", t: 0, cd: 0, tels: [], brain: null, def: null, _done: false, guard: false,
-    dmgMul: 1, act: "idle", k: 0, mv: 0, px: cfg.x, pz: cfg.z, // what the model is told: its act, 0..1 through it, and how fast it walks
+    aura, dmgMul: 1, act: "idle", k: 0, mv: 0, px: cfg.x, pz: cfg.z, // what the model is told: its act, 0..1 through it, and how fast it walks
   };
   e.hp = cfg.hp;
   e.update = (w, dt) => updateActor(e, w, dt);
@@ -100,6 +109,10 @@ export function createActor(world, cfg) {
 }
 
 function sync(e) {
+  // the aura stays flat on the ground while the body hops, hovers or squashes, and breathes slowly
+  e.aura.position.y = (0.03 - e.y) / (e.baseScale * e.sy);
+  const pulse = 1 + 0.08 * Math.sin(e.world.time * 4 + e.x + e.z);
+  e.aura.scale.set(pulse / e.sx, 1, pulse / e.sx);
   e.group.position.set(e.x, e.y, e.z);
   e.group.rotation.y = e.yaw;
   e.group.rotation.x = e.pitch;
@@ -126,6 +139,7 @@ function updateActor(e, w, dt) {
   sync(e);
 }
 const POSE = { move: 0, act: "idle", k: 0 };
+const AURA_COLOR = 0xff3d5a; // the danger red used by telegraphs
 
 function separate(e, w) {
   const list = w.enemies;
