@@ -62,6 +62,12 @@ function style(stride, swingR, swingL, rest, raised, struck, extra = {}) {
 }
 const TUCK = { cX: 0.75, hX: 0.3, aRx: 0.5, aLx: 0.5, fRx: -1.6, fLx: -1.6, lg: -0.9, sh: 1.7, hY: -0.22 };
 
+const BOW = [
+  { aLx: -0.5, fLx: -0.7, aRx: -0.2, fRx: -0.6 },
+  { aLx: -1.5, fLx: -0.05, aLz: 0.05, aRx: -1.35, fRx: -1.9, aRz: 0.5, cY: 0.75, hX: -0.05 },
+  { aLx: -1.5, fLx: -0.05, aLz: 0.05, aRx: -1.1, fRx: -0.5, aRz: 0.35, cY: 0.6 },
+];
+
 export const STYLES = {
   // one-handed weapon in the right hand: raise it over the shoulder, cut down across the body
   melee: style(9, 0.2, 0.6,
@@ -75,15 +81,26 @@ export const STYLES = {
     { aRx: -0.75, aRz: 0.05, fRx: -0.15, wR: 1.1, aLx: 0.1, fLx: -1.0, cY: 0.6, cX: 0.3, lg: -0.12 },
     { bash: { aLx: -1.45, fLx: -0.25, aLz: 0.0, aRx: 0.35, cY: -0.6, cX: 0.22, lg: -0.15 }, dodge: TUCK }),
   // bow in the left hand: hold it out, draw the string back to the cheek, let go
-  bow: style(10, 0.3, 0.3,
-    { aLx: -0.5, fLx: -0.7, aRx: -0.2, fRx: -0.6 },
-    { aLx: -1.5, fLx: -0.05, aLz: 0.05, aRx: -1.35, fRx: -1.9, aRz: 0.5, cY: 0.75, hX: -0.05 },
-    { aLx: -1.5, fLx: -0.05, aLz: 0.05, aRx: -1.1, fRx: -0.5, aRz: 0.35, cY: 0.6 }),
+  bow: style(10, 0.3, 0.3, ...BOW),
+  // the ranger: the same draw; the skill leans back into a wide volley
+  ranger: style(11, 0.3, 0.3, ...BOW, { bash: { aLx: -1.7, fLx: -0.05, aRx: -1.5, fRx: -2.0, aRz: 0.6, cY: 0.75, cX: -0.25, hX: -0.2 }, dodge: TUCK }),
+  // the rogue: a dagger in each hand, both thrown into the cut; the skill is a spin with both arms out
+  rogue: style(13, 0.5, 0.5,
+    { aRx: -0.4, fRx: -1.1, aLx: -0.4, fLx: -1.1, wR: -0.4, wL: -0.4, cX: 0.15, lg: -0.1, sh: 0.25 },
+    { aRx: -1.9, aRz: 0.4, fRx: -1.2, wR: -0.6, aLx: 0.4, fLx: -0.8, wL: -0.4, cY: -0.6, cX: 0.05 },
+    { aRx: -1.0, fRx: -0.1, wR: 0.9, aLx: -1.3, fLx: -0.3, wL: 0.7, cY: 0.7, cX: 0.35, lg: -0.2, sh: 0.3 },
+    { bash: { aRx: -1.3, aRz: 1.3, fRx: -0.1, wR: 0.4, aLx: -1.3, aLz: 1.3, fLx: -0.1, wL: 0.4, cY: 1.5, cX: 0.2, lg: -0.25, sh: 0.5, hY: -0.05 }, dodge: TUCK }),
   // spellcaster: both hands up, then thrown forward
   cast: style(7, 0.35, 0.35,
     { aRx: -0.35, fRx: -1.0, aLx: -0.35, fLx: -1.0 },
     { aRx: -2.7, aLx: -2.7, aRz: 0.45, aLz: 0.45, fRx: -0.35, fLx: -0.35, cX: -0.2, hX: -0.3 },
     { aRx: -1.45, aLx: -1.45, aRz: 0.1, aLz: 0.1, fRx: -0.1, fLx: -0.1, cX: 0.28, hX: 0.1 }),
+  // the mage: staff in the right hand, held upright, swept forward to cast; the skill plants it overhead
+  mage: style(9, 0.1, 0.4,
+    { aRx: -0.5, fRx: -0.9, wR: 0, aLx: -0.2, fLx: -0.7 },
+    { aRx: -1.9, fRx: -0.9, wR: 1.1, aRz: 0.3, aLx: -0.9, fLx: -1.2, cY: -0.4, cX: -0.12, hX: -0.1 },
+    { aRx: -1.3, fRx: -0.2, wR: 1.05, aLx: -0.3, fLx: -0.4, cY: 0.35, cX: 0.25 },
+    { bash: { aRx: -2.9, fRx: -0.2, wR: 1.5, aLx: -2.7, aLz: 0.5, fLx: -0.3, cX: -0.2, hX: -0.3, hY: 0.03 }, dodge: TUCK }),
   // heavy two-handed slam: everything overhead, then into the ground
   slam: style(6, 0.5, 0.5,
     { aRx: -0.15, fRx: -0.5, aLx: -0.15, fLx: -0.5, aRz: 0.3, aLz: 0.3, cX: 0.1 },

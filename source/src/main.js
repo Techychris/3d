@@ -7,6 +7,7 @@ import { createAudio } from "./engine/audio.js";
 import { createWorld, clearRoom, dist } from "./game/world.js";
 import { createRng, dailySeed } from "./core/rng.js";
 import { createMachine } from "./core/fsm.js";
+import { CLASSES, CLASS_IDS, classOf } from "./game/classes.js";
 import { GAME_FLOW, ROOM_FLOW } from "./game/flow.js";
 import { createPlayer } from "./game/player.js";
 import { spawnProjectile } from "./game/combat.js";
@@ -70,8 +71,10 @@ function applySettings() {
 applySettings();
 
 // ---------------- helpers ----------------
+// The class in play: the run's once a run exists, otherwise the one picked at camp.
+const heroClass = () => classOf(run ? run.cls : meta.cls);
 function setStats() {
-  world.stats = computeStats(run ? run.items : [], meta);
+  world.stats = computeStats(run ? run.items : [], meta, [heroClass().mods]);
 }
 function hudUpdate() {
   if (!world.player) return;
@@ -99,7 +102,7 @@ function disposeRoom() {
 
 function spawnPlayer(pos) {
   if (world.player) { world.player.dispose(world); world.player = null; }
-  world.player = createPlayer(world, run ? run.hero : "hero-warrior");
+  world.player = createPlayer(world, heroClass().hero, heroClass());
   world.player.x = pos.x; world.player.z = pos.z;
 }
 
@@ -120,6 +123,9 @@ function showHubPanel() {
   ui.showHub(meta, {
     upgradeCost: P.upgradeCost(meta, "vigor"),
     resumable: !!P.loadRun(),
+    classes: CLASS_IDS.map(id => CLASSES[id]), classId: heroClass().id,
+    onClass: (id) => { if (run) return; meta.cls = id; P.saveMeta(meta); setStats(); spawnPlayer(room.playerStart); audio.play("pickup"); showHubPanel(); },
+    onNew: () => { P.clearRun(); run = null; setStats(); spawnPlayer(room.playerStart); ui.toast("Saved run dropped. Pick a class and start fresh."); showHubPanel(); },
     onStart: () => startRun(null),
     onDaily: () => startRun(dailySeed(), true),
     onUpgrade: () => {
@@ -139,7 +145,7 @@ function startRun(seed, daily = false) {
   audio.unlock();
   const existing = P.loadRun();
   if (existing && !seed) run = existing;
-  else { run = P.newRun(seed || `run-${Date.now()}`); run.daily = daily; meta.runsStarted = (meta.runsStarted || 0) + 1; }
+  else { run = P.newRun(seed || `run-${Date.now()}`, meta.cls); run.daily = daily; meta.runsStarted = (meta.runsStarted || 0) + 1; }
   runEmbers = run.embers || 0; killerName = null;
   world.rng = createRng(`${run.seed}`);
   enterRoom();

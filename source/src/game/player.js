@@ -2,7 +2,8 @@
 import * as THREE from "three";
 import { makeAsset, COLORS } from "../engine/assets.js";
 import { resolveCollision, inCone, yawOf } from "./world.js";
-import { damageEnemy, applyStatus, makeSectorGeometry } from "./combat.js";
+import { damageEnemy, applyStatus, makeSectorGeometry, spawnProjectile } from "./combat.js";
+import { CLASSES } from "./classes.js";
 import { checkTable, createMachine } from "../core/fsm.js";
 
 // What the player's body is doing. "free": walk, attack, bash. "dodge": a fixed dash with invulnerability.
@@ -22,12 +23,19 @@ export const SWING_FLOW = checkTable({
 
 const S = Math.SQRT1_2;
 const ATTACK_RADIUS = 1.3, ATTACK_ARC = Math.PI * 110 / 180;
-const BASH_RADIUS = 1.6, BASH_ARC = Math.PI / 2, BASH_CD = 7;
+// Class skills: cooldown, the area they hit (radius and arc ahead; 2*PI is all around), damage multiplier and what they do.
+export const SKILLS = {
+  bash: { cd: 7, radius: 1.6, arc: Math.PI / 2, mul: 1.5, status: { stun: 1 }, push: 0.35, deflect: true, lunge: 0.2, invuln: 0 },
+  flurry: { cd: 6, radius: 1.9, arc: Math.PI * 2, mul: 1.8, status: {}, push: 0, deflect: false, lunge: 0, invuln: 0.35 },
+  nova: { cd: 8, radius: 2.8, arc: Math.PI * 2, mul: 1.5, status: { freeze: 1.6 }, push: 0, deflect: true, lunge: 0, invuln: 0 },
+  volley: { cd: 6, radius: 1.6, arc: 1.1, mul: 0.8 },
+};
 const DODGE_TIME = 0.2, DODGE_DIST = 2, DODGE_RECOVER = 0.15;
 const SWING_HIT_AT = 0.3;          // fraction of the swing at which damage lands
 const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 
-export function createPlayer(world, heroId = "hero-warrior") {
+export function createPlayer(world, heroId = "hero-warrior", cls = CLASSES.warrior) {
+  const sk = SKILLS[cls.skill];
   const stats0 = world.stats || {};
   const asset = makeAsset(heroId);
   const group = new THREE.Group(); group.name = "player";
@@ -41,7 +49,7 @@ export function createPlayer(world, heroId = "hero-warrior") {
   const slashGeo = makeSectorGeometry(ATTACK_RADIUS, 0.7, 10);
   const slashMat = new THREE.MeshBasicMaterial({ color: 0xfff0d0, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
   const slash = new THREE.Mesh(slashGeo, slashMat); slash.position.y = 0.3; slash.visible = false;
-  const bashGeo = makeSectorGeometry(BASH_RADIUS, BASH_ARC, 16);
+  const bashGeo = makeSectorGeometry(sk.radius, sk.arc, 24);
   const bashMat = new THREE.MeshBasicMaterial({ color: COLORS.magic, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
   const bash = new THREE.Mesh(bashGeo, bashMat); bash.position.y = 0.25; bash.visible = false;
   fxRoot.add(slash, bash);
@@ -58,7 +66,7 @@ export function createPlayer(world, heroId = "hero-warrior") {
   const player = {
     x: 0, z: 0, yaw: 0, hp: maxHp, maxHp, radius: 0.3, group, invuln: 0, dodgeCd: 0, skillCd: 0, shield: 0, dead: false, name: "You",
     // extras (see exports): read-only for other modules
-    get dodging() { return act.is("dodge"); }, slowMul: 1, skillMax: BASH_CD, dodgeMax: stats0.dodgeCooldown || 0.8,
+    get dodging() { return act.is("dodge"); }, slowMul: 1, skillMax: sk.cd, dodgeMax: stats0.dodgeCooldown || 0.8,
     update, dispose, heal,
   };
 
@@ -89,28 +97,46 @@ export function createPlayer(world, heroId = "hero-warrior") {
   }
 
   function resolveSwing(st) {
-    const dmg = st.damage || 10;
+    if (cls.attack === "shot") { shoot(st, swingYaw, 1); return; }
     for (const e of world.enemies) {
       if (e.dead || !inCone(e.x, e.z, player.x, player.z, swingYaw, ATTACK_RADIUS, ATTACK_ARC, e.radius || 0.3)) continue;
-      const crit = world.rng() < (st.critChance || 0);
-      damageEnemy(world, e, crit ? dmg * (st.critMult || 1.5) : dmg, { crit });
+      const { crit, dmg } = roll(st, 1);
+      damageEnemy(world, e, dmg, { crit });
     }
   }
 
-  function doBash(st) {
-    player.skillCd = BASH_CD;
-    bashT = 0; lungeT = 0.2;
+  // One hit's damage: the stat times a multiplier, with its own crit roll.
+  const roll = (st, mul) => {
+    const crit = world.rng() < (st.critChance || 0);
+    return { crit, dmg: (st.damage || 10) * mul * (crit ? st.critMult || 1.5 : 1) };
+  };
+
+  // Fires one projectile along a yaw (ranged classes' basic attack, and the ranger's volley).
+  function shoot(st, yaw, mul) {
+    const { dmg } = roll(st, mul);
+    const dx = Math.sin(yaw), dz = Math.cos(yaw);
+    spawnProjectile(world, { ...cls.shot, x: player.x + dx * 0.4, z: player.z + dz * 0.4, y: 0.6, dirX: dx, dirZ: dz, damage: dmg, hostile: false, sourceName: "You" });
+  }
+
+  // The class skill. bash / flurry / nova hit an area (a cone ahead, or all around); volley looses a fan of shots.
+  function doSkill(st) {
+    player.skillCd = sk.cd;
+    bashT = 0;
     const yaw = player.yaw;
     world.shake(0.12);
     if (world.audio) world.audio.play("slam");
+    if (cls.skill === "volley") { for (let i = -2; i <= 2; i++) shoot(st, yaw + i * 0.22, sk.mul); return; }
+    lungeT = sk.lunge;
+    player.invuln = Math.max(player.invuln, sk.invuln);
     for (const e of world.enemies) {
-      if (e.dead || !inCone(e.x, e.z, player.x, player.z, yaw, BASH_RADIUS, BASH_ARC, e.radius || 0.3)) continue;
-      damageEnemy(world, e, (st.damage || 10) * 1.5, { heavy: true });
-      applyStatus(world, e, { stun: 1 });
-      if (!e.dead) { e.x += Math.sin(yaw) * 0.35; e.z += Math.cos(yaw) * 0.35; resolveCollision(world, e, e.radius || 0.3); }
+      if (e.dead || !inCone(e.x, e.z, player.x, player.z, yaw, sk.radius, sk.arc, e.radius || 0.3)) continue;
+      damageEnemy(world, e, (st.damage || 10) * sk.mul, { heavy: true });
+      applyStatus(world, e, sk.status);
+      if (!e.dead && sk.push) { e.x += Math.sin(yaw) * sk.push; e.z += Math.cos(yaw) * sk.push; resolveCollision(world, e, e.radius || 0.3); }
     }
+    if (!sk.deflect) return;
     for (const pr of world.projectiles) {
-      if (pr.dead || !pr.hostile || !inCone(pr.x, pr.z, player.x, player.z, yaw, BASH_RADIUS, BASH_ARC, pr.radius || 0.2)) continue;
+      if (pr.dead || !pr.hostile || !inCone(pr.x, pr.z, player.x, player.z, yaw, sk.radius, sk.arc, pr.radius || 0.2)) continue;
       if (pr.kill) pr.kill(world, true); else pr.dead = true;
       if (world.fx) world.fx.burst(pr.x, pr.y || 0.7, pr.z, COLORS.magic, 8, 3);
     }
@@ -183,7 +209,7 @@ export function createPlayer(world, heroId = "hero-warrior") {
         if (stepT <= 0 && w.fx) { stepT = 0.28; w.fx.burst(player.x, 0.05, player.z, 0x8a7a9a, 2, 0.8); }
       }
       // skill, then attack
-      if (input.skill && player.skillCd <= 0) doBash(st);
+      if (input.skill && player.skillCd <= 0) doSkill(st);
       else if (input.attack && atkCd <= 0) doSwing(st);
     }
 
@@ -216,7 +242,7 @@ export function createPlayer(world, heroId = "hero-warrior") {
       const u = swingT, e = Math.sin(Math.min(1, u * 1.4) * Math.PI); // quick out, settle back
       lunge = 0.16 * e; tilt = 0.28 * e; roll = swingDir * 0.35 * Math.sin(u * Math.PI);
       // slash wedge sweeps across the arc
-      slash.visible = true;
+      slash.visible = cls.attack === "melee";
       fxRoot.position.set(player.x, 0, player.z);
       fxRoot.rotation.y = swingYaw;
       slash.rotation.y = swingDir * (ATTACK_ARC / 2 - 0.35) * (1 - 2 * Math.min(1, u * 1.3));

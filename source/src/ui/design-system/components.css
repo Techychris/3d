@@ -184,3 +184,8 @@
  .dusk-ui .tagchip{padding:2px var(--space-8);font-size:.75rem}
 }
 @media (prefers-reduced-motion:reduce){.dusk-ui *{animation:none!important;transition:none!important}.dusk-ui .bar.hp.low{box-shadow:0 0 0 2px var(--danger)}}
+/* class picker (camp) */
+.dusk-ui .classes{gap:var(--space-8);flex-wrap:wrap;justify-content:center}
+.dusk-ui button.cls{min-width:104px}
+.dusk-ui button.cls.on{border-color:var(--amber);color:var(--title);background:var(--ready-wash)}
+.dusk-ui .clsblurb{min-height:2.6em;max-width:46ch;margin:0 auto;text-align:center}

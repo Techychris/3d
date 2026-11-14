@@ -211,10 +211,18 @@ export function createUI(rootEl) {
     const lvl = (meta.upgrades && meta.upgrades.vigor) || 0;
     const canBuy = cost != null && (meta.currency || 0) >= cost;
     const up = btn(cost == null ? "Vigor maxed" : "Raise vigor (" + cost + " embers)", () => safe(o.onUpgrade, "vigor"), "", { icon: "vigor", disabled: cost == null || !canBuy, "aria-label": cost == null ? "Vigor upgrade, maxed out" : "Buy Vigor upgrade for " + cost + " embers" + (canBuy ? "" : ", not enough embers") });
+    const classes = o.classes || [], cur = classes.find((c) => c.id === o.classId);
+    // with a saved run the class is fixed: the picker is locked until the player starts a new run
+    const picks = classes.map((c) => btn(c.name, () => safe(o.onClass, c.id), c === cur ? "cls on" : "cls", { icon: c.icon, "aria-pressed": String(c === cur), disabled: !!o.resumable && c !== cur }));
+    const starts = o.resumable
+      ? [btn("Resume run", () => safe(o.onStart), "primary big", { icon: "play" }), btn("New run", () => safe(o.onNew), "", { icon: "reroll" })]
+      : [btn("Start run", () => safe(o.onStart), "primary big", { icon: "play" })];
     open(panel("hub center", "Camp",
       h("h1", { text: "Dusk Camp" }),
       h("p", { class: "muted sub", text: "Gather by the fire, then step through the portal." }),
-      h("div", { class: "row" }, btn("Start run", () => safe(o.onStart), "primary big", { icon: "play" }), btn("Daily seed run", () => safe(o.onDaily), "", { icon: "daily" })),
+      h("div", { class: "row classes", role: "group", "aria-label": "Class" }, ...picks),
+      h("p", { class: "muted clsblurb", text: cur ? cur.blurb : "" }),
+      h("div", { class: "row" }, ...starts, btn("Daily seed run", () => safe(o.onDaily), "", { icon: "daily" })),
       h("div", { class: "stats" },
         h("div", { class: "stat", "data-component": "stat" }, h("span", { text: "Embers" }), coin(meta.currency)),
         h("div", { class: "stat", "data-component": "stat" }, h("span", { text: "Endings found" }), h("span", { text: endings + " of 3" })),

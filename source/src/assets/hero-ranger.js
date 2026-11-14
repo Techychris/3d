@@ -1,3 +1,5 @@
+import { biped, fill, poseBiped, STYLES } from "../engine/rig.js";
+
 export const meta = {
   id: "hero-ranger",
   name: "Ranger",
@@ -8,74 +10,32 @@ export const meta = {
 };
 
 export function build(THREE) {
-  const g = new THREE.Group(); g.name = meta.id;
+  const std = (color, metalness = 0) => new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.8, metalness });
+  const green = std(0x4f7a3f), leather = std(0x4e3423), wood = std(0x7a5236), skin = std(0xd9a27e), cord = std(0xe8dcc0), dark = std(0x3b3a40), gold = std(0xe0b04a, 0.3);
 
-  const mat = (color, extra) => new THREE.MeshStandardMaterial(Object.assign(
-    { color, flatShading: true, roughness: 0.8, metalness: 0 }, extra || {}));
-  const cloakMat = mat(0x4f7a3f);
-  const skinMat = mat(0xd9a27e);
-  const woodMat = mat(0x7a5236);
-  const woodDarkMat = mat(0x4e3423);
-  const stoneDarkMat = mat(0x3b3a40);
-  const boneMat = mat(0xe8dcc0);
-  const metalMat = mat(0x9aa3ad, { metalness: 0.3 });
+  const { group, rig, mesh } = biped(THREE, meta.id, { leg: 0.3, torso: 0.27, arm: 0.3, shoulders: 0.17, hips: 0.08, limb: 0.046, depth: 0.7, shadow: 0.36,
+    mats: { ...fill(leather), torso: green, shoulder: green, arm: green, thigh: dark, hand: skin },
+  });
 
-  // Blob shadow (stays on the ground, does not bob)
-  const shadow = new THREE.Mesh(
-    new THREE.CircleGeometry(0.4, 12),
-    new THREE.MeshStandardMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false, flatShading: true, roughness: 0.8, metalness: 0 })
-  );
-  shadow.name = "shadow"; shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.01;
-  g.add(shadow);
+  // Short cloak, a quiver of arrows across the back, a gold cloak pin.
+  mesh(rig.chest, new THREE.CylinderGeometry(0.13, 0.24, 0.36, 7, 1, true, Math.PI * 0.55, Math.PI * 0.9), green, "cloak", 0, 0.1, -0.02);
+  mesh(rig.chest, new THREE.OctahedronGeometry(0.03, 0), gold, "pin", 0, 0.25, 0.125);
+  mesh(rig.chest, new THREE.CylinderGeometry(0.05, 0.04, 0.26, 6).rotateZ(0.4), leather, "quiver", 0.04, 0.14, -0.15);
+  for (let i = 0; i < 3; i++) mesh(rig.chest, new THREE.CylinderGeometry(0.009, 0.009, 0.14, 4).rotateZ(0.4), cord, "arrow", -0.045 + i * 0.022, 0.31, -0.15 + (i - 1) * 0.016);
 
-  // Figure group: everything above the ground, so update() can bob it
-  const figure = new THREE.Group(); figure.name = "figure";
-  g.add(figure);
-  g.userData.figure = figure;
+  // Hood with a point, a calm face, a feather tucked in the band.
+  mesh(rig.head, new THREE.SphereGeometry(0.19, 10, 8), green, "hood", 0, 0.17, -0.01);
+  mesh(rig.head, new THREE.ConeGeometry(0.1, 0.22, 6).rotateX(-1.0), green, "hoodPeak", 0, 0.28, -0.13);
+  mesh(rig.head, new THREE.SphereGeometry(0.15, 10, 8).scale(1, 0.92, 0.8), skin, "face", 0, 0.15, 0.07);
+  for (const s of [-1, 1]) mesh(rig.head, new THREE.SphereGeometry(0.02, 6, 4), dark, "eye", s * 0.055, 0.17, 0.185);
+  mesh(rig.head, new THREE.BoxGeometry(0.02, 0.18, 0.05).rotateZ(-0.5), cord, "feather", 0.17, 0.3, 0);
 
-  const part = (name, geo, material, x, y, z) => {
-    const m = new THREE.Mesh(geo, material);
-    m.name = name; m.position.set(x, y, z); figure.add(m); return m;
-  };
-
-  // Cloak: tapered cylinder, wide at the hem
-  part("cloak", new THREE.CylinderGeometry(0.16, 0.28, 0.6, 8), cloakMat, 0, 0.3, 0);
-
-  // Oversized hooded head with skin-coloured face opening at the front (+z)
-  part("hood", new THREE.SphereGeometry(0.2, 8, 6), cloakMat, 0, 0.8, 0);
-  part("face", new THREE.SphereGeometry(0.11, 8, 6), skinMat, 0, 0.78, 0.12);
-  part("eyeL", new THREE.SphereGeometry(0.02, 6, 4), stoneDarkMat, -0.04, 0.8, 0.22);
-  part("eyeR", new THREE.SphereGeometry(0.02, 6, 4), stoneDarkMat, 0.04, 0.8, 0.22);
-
-  // Large bow in the left hand (+x side). The arc bulges toward +z, away from the body.
-  part("bow", new THREE.TorusGeometry(0.34, 0.04, 4, 10, Math.PI), woodMat, 0.3, 0.55, 0)
-    .rotation.set(0, Math.PI / 2, Math.PI / 2);
-  // Bowstring: chord of the arc, behind the grip
-  part("string", new THREE.CylinderGeometry(0.02, 0.02, 0.68, 3), boneMat, 0.3, 0.55, 0);
-
-  // Sleeve from shoulder to the bow grip, plus the hand on the grip
-  const shoulder = new THREE.Vector3(0.16, 0.66, 0);
-  const grip = new THREE.Vector3(0.3, 0.55, 0.32);
-  const armDir = grip.clone().sub(shoulder);
-  const armLen = armDir.length();
-  const arm = part("arm", new THREE.CylinderGeometry(0.05, 0.05, armLen, 6), cloakMat,
-    (shoulder.x + grip.x) / 2, (shoulder.y + grip.y) / 2, (shoulder.z + grip.z) / 2);
-  arm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), armDir.normalize());
-  part("hand", new THREE.SphereGeometry(0.06, 6, 4), skinMat, grip.x, grip.y, grip.z);
-
-  // Quiver on the back (-z) with three arrows standing up out of it
-  part("quiver", new THREE.CylinderGeometry(0.07, 0.07, 0.44, 8), woodDarkMat, -0.1, 0.5, -0.27);
-  const arrowX = [-0.13, -0.1, -0.07];
-  for (let i = 0; i < arrowX.length; i++) {
-    part("arrow" + i, new THREE.CylinderGeometry(0.02, 0.02, 0.42, 4), woodMat, arrowX[i], 0.71, -0.27);
-    part("arrowTip" + i, new THREE.ConeGeometry(0.035, 0.08, 4), metalMat, arrowX[i], 0.96, -0.27);
-  }
-
-  return g;
+  // Longbow in the left fist: upright when the arm is held out, with its string.
+  mesh(rig.handL, new THREE.TorusGeometry(0.27, 0.022, 4, 14, Math.PI * 0.9).rotateZ(-Math.PI * 0.95).rotateY(Math.PI / 2), wood, "bow", 0, 0.27, 0);
+  mesh(rig.handL, new THREE.CylinderGeometry(0.006, 0.006, 0.53, 3).rotateX(Math.PI / 2), cord, "string", 0, 0.228, 0);
+  return group;
 }
 
-export function update(group, t) {
-  // Gentle idle bob: figure rises 0 to 0.02 and never dips below the ground
-  const figure = group.userData.figure;
-  if (figure) figure.position.y = (1 + Math.sin(t * 4)) * 0.01;
+export function update(group, t, pose) {
+  poseBiped(group, t, pose, STYLES.ranger);
 }

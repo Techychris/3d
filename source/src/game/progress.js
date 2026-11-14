@@ -1,5 +1,6 @@
 // Meta progress, run state and save codes. Pure logic, no three.js.
 import { hashString } from "../core/rng.js";
+import { CLASS_IDS, classOf } from "./classes.js";
 
 const KEY = "dusk-roguelite-v1";
 const SAVE_VERSION = 1;
@@ -16,7 +17,7 @@ export function defaultSettings() {
   return { quality: "auto", shake: true, flashes: true, blur: true, music: 0.6, sfx: 0.8, screenRelative: true };
 }
 export function defaultMeta() {
-  return { currency: 0, upgrades: { vigor: 0 }, endings: [], codex: [], runsStarted: 0, runsWon: 0, settings: defaultSettings() };
+  return { currency: 0, upgrades: { vigor: 0 }, endings: [], codex: [], cls: "warrior", runsStarted: 0, runsWon: 0, settings: defaultSettings() };
 }
 
 // In-memory fallback (also the only store in node or when storage is blocked).
@@ -44,7 +45,7 @@ export function normalizeMeta(m) {
   return {
     currency: Math.floor(num(m.currency, 0, 0)),
     upgrades: { vigor: Math.floor(num(m.upgrades && m.upgrades.vigor, 0, 0, VIGOR_MAX)) },
-    endings: strs(m.endings), codex: strs(m.codex),
+    endings: strs(m.endings), codex: strs(m.codex), cls: CLASS_IDS.includes(m.cls) ? m.cls : "warrior",
     runsStarted: Math.floor(num(m.runsStarted, 0, 0)), runsWon: Math.floor(num(m.runsWon, 0, 0)),
     settings: {
       quality: ["auto", "low", "medium", "high"].includes(s.quality) ? s.quality : d.settings.quality,
@@ -62,7 +63,7 @@ function normalizeRun(r) {
     seed: r.seed, floor: Math.floor(num(r.floor, 1, 1, 3)), room: Math.floor(num(r.room, 0, 0, 99)),
     items: strs(r.items), runCurrency: Math.floor(num(r.runCurrency, 0, 0)),
     hp: r.hp === null || r.hp === undefined ? null : num(r.hp, null, 0),
-    hero: typeof r.hero === "string" ? r.hero : "hero-warrior",
+    hero: typeof r.hero === "string" ? r.hero : "hero-warrior", cls: CLASS_IDS.includes(r.cls) ? r.cls : "warrior",
     startedAt: num(r.startedAt, 0),
     daily: !!r.daily, hitsTaken: Math.floor(num(r.hitsTaken, 0, 0)), embers: Math.floor(num(r.embers, 0, 0)),
     roomType: ROOM_KINDS.includes(r.roomType) ? r.roomType : "combat", path: strs(r.path).filter((t) => ROOM_KINDS.includes(t)).slice(0, 12),
@@ -80,8 +81,8 @@ export function resetProgress() {
   try { const s = store(); if (s) s.removeItem(KEY); } catch (e) { /* ignore */ }
 }
 
-export function newRun(seed) {
-  return { seed, floor: 1, room: 0, items: [], runCurrency: 0, hp: null, hero: "hero-warrior", startedAt: Date.now(), daily: false, hitsTaken: 0, embers: 0, roomType: "combat", path: [] };
+export function newRun(seed, cls = "warrior") {
+  return { seed, floor: 1, room: 0, items: [], runCurrency: 0, hp: null, hero: classOf(cls).hero, cls: classOf(cls).id, startedAt: Date.now(), daily: false, hitsTaken: 0, embers: 0, roomType: "combat", path: [] };
 }
 
 export function upgradeCost(meta, which) {

@@ -72,7 +72,8 @@ export function tagCounts(itemIds) {
   return out;
 }
 
-export function computeStats(itemIds, meta) {
+// mods: extra additive stat changes on top of the items (the class, equipped gear), e.g. [{ maxHp: -20, moveSpeed: 0.5 }]
+export function computeStats(itemIds, meta, mods = []) {
   const s = Object.assign({}, BASE_STATS, {
     burnPct: 0, burnSpread: false, slowPct: 0, freezeEvery: 0, bleedPct: 0, bleedAmp: 0,
     roomShield: 0, shieldOnDodge: false, summons: 0,
@@ -82,6 +83,8 @@ export function computeStats(itemIds, meta) {
     if (!it) continue;
     for (const k of Object.keys(it.mods)) s[k] = (s[k] || 0) + it.mods[k];
   }
+  for (const m of mods) for (const k of Object.keys(m)) s[k] = (s[k] || 0) + m[k];
+  s.maxHp = Math.max(20, s.maxHp); s.attackRate = Math.max(0.6, s.attackRate); s.damage = Math.max(1, s.damage);
   const c = tagCounts(itemIds);
   const n = (t) => c[t] || 0;
   if (n("fire") >= 2) s.burnPct = 0.10;

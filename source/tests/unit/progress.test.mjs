@@ -48,7 +48,7 @@ describe("constants and defaults", () => {
   it("builds default settings and default meta", () => {
     assert.deepEqual(P.defaultSettings(), { quality: "auto", shake: true, flashes: true, blur: true, music: 0.6, sfx: 0.8, screenRelative: true });
     assert.deepEqual(P.defaultMeta(), {
-      currency: 0, upgrades: { vigor: 0 }, endings: [], codex: [], runsStarted: 0, runsWon: 0, settings: P.defaultSettings(),
+      currency: 0, upgrades: { vigor: 0 }, endings: [], codex: [], cls: "warrior", runsStarted: 0, runsWon: 0, settings: P.defaultSettings(),
     });
   });
 });
@@ -289,7 +289,7 @@ describe("newRun", () => {
     t.mock.timers.enable({ apis: ["Date"], now: 1234 });
     try {
       assert.deepEqual(P.newRun("seed-7"), {
-        seed: "seed-7", floor: 1, room: 0, items: [], runCurrency: 0, hp: null, hero: "hero-warrior",
+        seed: "seed-7", floor: 1, room: 0, items: [], runCurrency: 0, hp: null, hero: "hero-warrior", cls: "warrior",
         startedAt: 1234, daily: false, hitsTaken: 0, embers: 0, roomType: "combat", path: [],
       });
     } finally {

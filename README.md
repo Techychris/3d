@@ -8,6 +8,11 @@ Browser game built with three.js r187. Fight through 3 floors of floating-island
 - Desktop: WASD to move, mouse to aim, J or left click to attack, Space or K to dodge, L to bash, Esc to pause.
 - Phone: play in landscape, with an on-screen stick and buttons.
 
+## What's in v1.5
+- Four classes, picked at camp: Warrior (sword and shield, Bash), Rogue (twin daggers, fast, crits often, Flurry hits all around), Ranger (bow, fights from range, Volley fires five arrows), Mage (staff, heavy bolts, Nova freezes everything close). Each has its own jointed model and animations.
+- A saved run keeps its class. Camp now shows Resume run and New run when a run is saved.
+- Phones: on short screens the HUD shrinks into the corners, touch buttons are smaller and see-through, and the camera pulls back and shifts the room left so the HUD stops covering the action.
+
 ## What's in v1.4.1
 - Door signs redrawn: flat medallions that face the camera, with the same line icons the HUD uses (crossed swords, skull, chest, campfire, crown, stairs), a ring in the room type's colour and a pointer down at the door. See `screenshots/door-signs-v1.4.1.png`.
 

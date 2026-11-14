@@ -1,3 +1,5 @@
+import { biped, fill, poseBiped, STYLES } from "../engine/rig.js";
+
 export const meta = {
   id: "hero-mage",
   name: "Hero mage",
@@ -8,61 +10,45 @@ export const meta = {
 };
 
 export function build(THREE) {
-  const g = new THREE.Group(); g.name = meta.id;
-  const robeMat = new THREE.MeshStandardMaterial({ color: 0x3e5c9a, flatShading: true, roughness: 0.8, metalness: 0 });
-  const hatMat = new THREE.MeshStandardMaterial({ color: 0x3b3a40, flatShading: true, roughness: 0.8, metalness: 0 });
-  const goldMat = new THREE.MeshStandardMaterial({ color: 0xe0b04a, flatShading: true, roughness: 0.8, metalness: 0 });
-  const skinMat = new THREE.MeshStandardMaterial({ color: 0xd9a27e, flatShading: true, roughness: 0.8, metalness: 0 });
-  const woodMat = new THREE.MeshStandardMaterial({ color: 0x7a5236, flatShading: true, roughness: 0.8, metalness: 0 });
-  const orbMat = new THREE.MeshStandardMaterial({ color: 0x8c5be0, emissive: 0x8c5be0, emissiveIntensity: 1.0, flatShading: true, roughness: 0.8, metalness: 0 });
-  const shadowMat = new THREE.MeshStandardMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false, flatShading: true, roughness: 0.8, metalness: 0 });
+  const std = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.8, metalness: 0, ...extra });
+  const blue = std(0x3e5c9a), dark = std(0x3b3a40), skin = std(0xd9a27e), wood = std(0x4e3423), gold = std(0xe0b04a, { metalness: 0.3 }), beard = std(0xe8dcc0);
+  const orbMat = std(0x8c5be0, { emissive: 0x8c5be0, emissiveIntensity: 1.0 });
 
-  // Blob shadow
-  const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.36, 16), shadowMat);
-  shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.01; shadow.name = "shadow"; g.add(shadow);
+  const { group, rig, mesh } = biped(THREE, meta.id, { leg: 0.3, torso: 0.27, arm: 0.3, shoulders: 0.17, hips: 0.08, limb: 0.046, depth: 0.7, shadow: 0.36,
+    mats: { ...fill(blue), hand: skin, foot: dark, shin: dark },
+  });
 
-  // Robe: bell-shaped lathe, bottom flares out
-  const robeProfile = [
-    new THREE.Vector2(0.30, 0.0),
-    new THREE.Vector2(0.28, 0.3),
-    new THREE.Vector2(0.20, 0.5),
-    new THREE.Vector2(0.14, 0.62)
-  ];
-  const robe = new THREE.Mesh(new THREE.LatheGeometry(robeProfile, 8), robeMat);
-  robe.name = "body"; g.add(robe);
+  // Robe skirt with a gold hem, wide cuffs, a star clasp.
+  mesh(rig.hips, new THREE.CylinderGeometry(0.14, 0.25, 0.3, 8, 1, true).translate(0, -0.13, 0), blue, "skirt", 0, 0.04, 0);
+  mesh(rig.hips, new THREE.TorusGeometry(0.25, 0.018, 4, 12).rotateX(Math.PI / 2), gold, "hem", 0, -0.24, 0);
+  for (const fore of [rig.foreL, rig.foreR]) mesh(fore, new THREE.CylinderGeometry(0.045, 0.085, 0.12, 7, 1, true), blue, "cuff", 0, -0.1, 0);
+  mesh(rig.chest, new THREE.OctahedronGeometry(0.035, 0), gold, "clasp", 0, 0.22, 0.125);
 
-  // Head
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), skinMat);
-  head.position.y = 0.74; head.name = "head"; g.add(head);
+  // Tall bent hat with a wide brim, a face and a short white beard.
+  mesh(rig.head, new THREE.SphereGeometry(0.16, 10, 8).scale(1, 0.95, 0.9), skin, "face", 0, 0.15, 0.02);
+  mesh(rig.head, new THREE.ConeGeometry(0.12, 0.16, 6).rotateX(Math.PI), beard, "beard", 0, 0.03, 0.11);
+  mesh(rig.head, new THREE.CylinderGeometry(0.3, 0.3, 0.025, 12), blue, "brim", 0, 0.25, 0);
+  mesh(rig.head, new THREE.ConeGeometry(0.17, 0.3, 8), blue, "hat", 0, 0.4, 0);
+  mesh(rig.head, new THREE.ConeGeometry(0.07, 0.2, 6).rotateX(-0.9), blue, "hatTip", 0, 0.55, -0.07);
+  mesh(rig.head, new THREE.TorusGeometry(0.165, 0.018, 4, 12).rotateX(Math.PI / 2), gold, "hatBand", 0, 0.275, 0);
+  for (const s of [-1, 1]) mesh(rig.head, new THREE.SphereGeometry(0.02, 6, 4), dark, "eye", s * 0.055, 0.17, 0.155);
 
-  // Oversized hat: brim, gold band, tall cone
-  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.03, 8), hatMat);
-  brim.position.y = 0.84; brim.name = "hat"; g.add(brim);
-  const cone = new THREE.Mesh(new THREE.CylinderGeometry(0.0, 0.18, 0.24, 8), hatMat);
-  cone.position.y = 0.975; cone.name = "hat"; g.add(cone);
-  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.035, 8), goldMat);
-  band.position.y = 0.87; band.name = "hatBand"; g.add(band);
+  // Staff in the right fist with a glowing orb held in a gold claw.
+  mesh(rig.handR, new THREE.CylinderGeometry(0.02, 0.024, 0.95, 6).rotateX(Math.PI / 2), wood, "staff", 0, 0, 0.18);
+  mesh(rig.handR, new THREE.TorusGeometry(0.06, 0.014, 4, 8, Math.PI * 1.3).rotateZ(Math.PI * 0.85).rotateY(Math.PI / 2).rotateX(Math.PI / 2), gold, "claw", 0, 0, 0.66);
+  const orb = mesh(rig.handR, new THREE.IcosahedronGeometry(0.065, 0), orbMat, "orb", 0, 0, 0.7);
 
-  // Hand on the staff
-  const hand = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 5), skinMat);
-  hand.position.set(0.22, 0.45, 0.05); hand.name = "hand"; g.add(hand);
-
-  // Staff: chunky wooden shaft with a glowing magic-violet orb
-  const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.0, 6), woodMat);
-  staff.position.set(0.26, 0.5, 0.05); staff.name = "staff"; g.add(staff);
-  const orb = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), orbMat);
-  orb.position.set(0.26, 1.04, 0.05); orb.name = "orb"; g.add(orb);
-
-  g.userData.orb = orb;
-  g.userData.orbMat = orbMat;
-  return g;
+  group.userData.orb = orb; group.userData.orbMat = orbMat;
+  return group;
 }
 
-export function update(group, t) {
-  const orb = group.userData.orb;
-  const mat = group.userData.orbMat;
-  if (!orb || !mat) return;
-  const p = 0.5 + 0.5 * Math.sin(t * 2.5);   // 0..1, gentle pulse
-  orb.scale.setScalar(1 + 0.08 * p);
-  mat.emissiveIntensity = 0.8 + 0.4 * p;
+// pose.act: the orb flares as a spell is cast
+export function update(group, t, pose) {
+  poseBiped(group, t, pose, STYLES.mage);
+  const { orb, orbMat } = group.userData;
+  if (!orb) return;
+  const casting = pose && pose.act !== "idle" && pose.act !== "dodge" ? 1 : 0, pulse = 0.5 + 0.5 * Math.sin(t * (3 + 9 * casting));
+  orb.rotation.z = t * 1.5;
+  orb.scale.setScalar(0.92 + 0.16 * pulse + 0.4 * casting);
+  orbMat.emissiveIntensity = 0.8 + 0.6 * pulse + 1.2 * casting;
 }
