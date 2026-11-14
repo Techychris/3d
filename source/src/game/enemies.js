@@ -25,6 +25,7 @@ export function say(w, name) { if (w.audio && w.audio.play) w.audio.play(name); 
 export function tele(e, w, o) {
   if (o.sourceName === undefined) o.sourceName = e.name;
   if (o.damage === undefined) o.damage = e.damage;
+  o.damage *= e.dmgMul || 1;
   const t = spawnTelegraph(w, o);
   if (t) {
     if (e.tels.length > 8) e.tels = e.tels.filter(x => !x.dead);
@@ -42,7 +43,7 @@ export function shoot(e, w, angle, o = {}) {
   const off = o.off === undefined ? 0.4 : o.off;
   return spawnProjectile(w, {
     x: e.x + dx * off, z: e.z + dz * off, y: o.y === undefined ? 0.7 : o.y, dirX: dx, dirZ: dz,
-    speed: o.speed || 5, damage: o.damage === undefined ? e.damage : o.damage, radius: o.radius || 0.2,
+    speed: o.speed || 5, damage: (o.damage === undefined ? e.damage : o.damage) * (e.dmgMul || 1), radius: o.radius || 0.2,
     kind: o.kind || "orb", hostile: true, range: o.range || 12, sourceName: e.name,
   });
 }
@@ -88,7 +89,7 @@ export function createActor(world, cfg) {
     dead: false, status: { burnT: 0, burnDps: 0, slowT: 0, slowPct: 0, frozenT: 0, bleedT: 0, bleedDps: 0, stunT: 0 },
     speedMul: 1, group, asset, world, yaw: cfg.yaw || 0, pitch: 0, sx: 1, sy: 1, baseScale: cfg.scale || 1,
     state: "idle", t: 0, cd: 0, tels: [], brain: null, def: null, _done: false, guard: false,
-    act: "idle", k: 0, mv: 0, px: cfg.x, pz: cfg.z, // what the model is told: its act, 0..1 through it, and how fast it walks
+    dmgMul: 1, act: "idle", k: 0, mv: 0, px: cfg.x, pz: cfg.z, // what the model is told: its act, 0..1 through it, and how fast it walks
   };
   e.hp = cfg.hp;
   e.update = (w, dt) => updateActor(e, w, dt);

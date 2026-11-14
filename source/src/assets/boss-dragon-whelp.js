@@ -1,3 +1,5 @@
+import { accents } from "../engine/rig.js";
+
 export const meta = {
   id: "boss-dragon-whelp",
   name: "Dragon whelp",
@@ -101,11 +103,14 @@ export function build(THREE) {
   return g;
 }
 
-export function update(group, t) {
+// pose: the mouth blazes and the wings lift through a windup, then snap down on the strike
+export function update(group, t, pose) {
   const p = group.userData.parts;
   if (!p) return;
-  p.mouthGlow.material.emissiveIntensity = 1.0 + 0.35 * Math.sin(t * 5.0);
-  const flap = 0.06 * Math.sin(t * 2.0);
+  const { wind, hit, move } = accents(pose);
+  p.mouthGlow.material.emissiveIntensity = 1.0 + 0.35 * Math.sin(t * 5.0) + 2.5 * wind;
+  p.mouthGlow.scale.setScalar(1 + 0.8 * wind);
+  const flap = (0.06 + 0.2 * move) * Math.sin(t * (2.0 + 6 * move)) + 0.5 * wind - 0.35 * hit;
   p.wingR.rotation.z = -0.15 + flap;
   p.wingL.rotation.z = 0.15 - flap;
 }

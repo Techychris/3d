@@ -13,7 +13,7 @@ import { createPlayer } from "./game/player.js";
 import { spawnProjectile } from "./game/combat.js";
 import { createFx } from "./game/fx.js";
 import { createEnemy, ENEMY_TYPES } from "./game/enemies.js";
-import { createBoss, BOSS_TYPES } from "./game/bosses.js";
+import { createBoss, BOSS_TYPES, bossOrder } from "./game/bosses.js";
 import { buildRoom, buildHub, FLOORS } from "./game/rooms.js";
 import { exitChoices, ROOM_TYPES } from "./game/route.js";
 import { ITEMS, computeStats, rollShrine, describeCard, tagCounts } from "./game/items.js";
@@ -23,8 +23,6 @@ import { makeAsset } from "./engine/assets.js";
 
 const ROOMS_PER_FLOOR = 4;          // combat rooms before each boss (v1 scope)
 const FLOORS_PER_RUN = 3;
-const BOSSES = { 1: "slime-king", 2: "stone-golem", 3: "necromancer" };
-const BOSS_NAMES = { "slime-king": "Slime King", "stone-golem": "Stone Golem", "necromancer": "Necromancer" };
 const REROLL_COST = 10, SKIP_REWARD = 6;
 
 const app = document.getElementById("app");
@@ -170,9 +168,9 @@ function enterRoom() {
   p.hp = run.hp == null ? p.maxHp : Math.min(run.hp, p.maxHp);
   p.shield = (world.stats.roomShield || 0) * p.maxHp;
   if (boss) {
-    const id = BOSSES[run.floor];
-    const bs = room.bossSpawn || { x: 0, z: -1.5 }; createBoss(world, room.bossId || id, bs.x, bs.z);
-    audio.play("boss"); ui.toast(`${BOSS_NAMES[id]}`);
+    const id = bossOrder(run.seed)[run.floor - 1]; // three of the four bosses, in an order set by the seed
+    const bs = room.bossSpawn || { x: 0, z: -1.5 }; createBoss(world, id, bs.x, bs.z, run.floor);
+    audio.play("boss"); ui.toast(`${BOSS_TYPES[id].name}`);
   } else {
     for (const s of room.spawns) createEnemy(world, s.type, s.x, s.z);
     if (type === "rest") ui.toast(run.roomDone ? "Rest room: you have already rested here" : "Rest room: walk to the campfire to heal");
@@ -295,7 +293,7 @@ function endRun(won) {
   const endingsNew = [];
   if (won) {
     meta.runsWon = (meta.runsWon || 0) + 1;
-    for (const id of P.endingsEarned({ won: true, bossId: BOSSES[FLOORS_PER_RUN], hitsTaken: run.hitsTaken || 0, daily: !!run.daily })) {
+    for (const id of P.endingsEarned({ won: true, hitsTaken: run.hitsTaken || 0, daily: !!run.daily })) {
       if (!meta.endings.includes(id)) { meta.endings.push(id); const e = P.ENDINGS.find(x => x.id === id); endingsNew.push(e ? e.name : id); }
     }
   }

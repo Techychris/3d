@@ -147,12 +147,12 @@ for (const id of BOSSES) {
     const w = makeWorld({ withPlayer: true });
     const b = createBoss(w, id, -3, 0);
     const x0 = b.x;
-    const still = id === "necromancer" ? 4.5 : 1.0;   // the necromancer holds a 3.8 to 5.6 band
+    const still = { necromancer: 4.5, "dragon-whelp": 3.0 }[id] || 1.0;   // the necromancer holds 3.8 to 5.6, the whelp 2.2 to 4.2
     b.def.move(b, w, 0.1, still, 1, 0);
     assert.equal(b.x, x0, "no step inside its hold range");
     b.def.move(b, w, 0.1, 6.5, 1, 0);
     assert.ok(b.x > x0, "walks toward a far player");
-    if (id === "necromancer") {
+    if (id === "necromancer" || id === "dragon-whelp") {
       const x1 = b.x;
       b.def.move(b, w, 0.1, 2.0, 1, 0);
       assert.ok(b.x < x1, "backs away when too close");
@@ -467,3 +467,83 @@ for (const id of ["slime-king", "stone-golem", "necromancer"]) {
     });
   }
 }
+
+// ---------------------------------------------------------------- Dragon Whelp, boss order, floor scaling
+import { bossOrder } from "../../src/game/bosses.js";
+
+test("dragon whelp: sweeps its tail when the player is close, otherwise breathes or throws fireballs by phase", () => {
+  const w = makeWorld({ withPlayer: true });
+  const b = createBoss(w, "dragon-whelp", 0, 0);
+  w.player.x = 0; w.player.z = 4;
+  const run = (action) => playOut(w, b, action);
+  // close: tail sweep, one circle centred on the whelp
+  const sweep = run(b.def.pick(b, w, 1.5));
+  assert.deepEqual([...sweep.tele].map((t) => [t.shape, t.radius, t.x, t.z]), [["circle", 2.5, 0, 0]]);
+  // phase 1: a cone breath (low roll) or three fireballs (high roll)
+  const breath = run(pickFar(b, w, 0.05));
+  assert.deepEqual([...breath.tele].map((t) => [t.shape, t.damage]), [["cone", 16]]);
+  const balls = run(pickFar(b, w, 0.95));
+  assert.equal(balls.proj.size, 3);
+  assert.ok([...balls.proj].every((p) => p.hostile && p.damage === 11));
+  assert.equal(balls.tele.size, 3, "one aim line per fireball");
+  // phase 2: wider breath, five fireballs
+  b.phase = 2;
+  assert.ok(Math.abs([...run(pickFar(b, w, 0.05)).tele][0].arc - 1.6) < 1e-9);
+  assert.equal(run(pickFar(b, w, 0.95)).proj.size, 5);
+  // phase 3: every option is a two-part combo
+  b.phase = 3;
+  for (const u of [0.05, 0.6, 0.95]) assert.equal(pickFar(b, w, u).factories.length, 2);
+  assert.ok(run(pickFar(b, w, 0.95)).tele.size >= 2, "sweep then breath");
+});
+function pickFar(b, w, u) { const saved = w.rng; w.rng = () => u; try { return b.def.pick(b, w, 5); } finally { w.rng = saved; } }
+
+test("dragon whelp hovers, and its model reacts to the windup", () => {
+  const w = makeWorld({ withPlayer: true });
+  const b = createBoss(w, "dragon-whelp", 0, 0);
+  w.time = 1; b.def.move(b, w, 0.1, 3, 1, 0);
+  assert.ok(b.y > 0.04 && b.y < 0.26);
+  const glow = b.asset.group.userData.parts.mouthGlow;
+  b.asset.update(1, { move: 0, act: "idle", k: 0 }); const idle = glow.material.emissiveIntensity;
+  b.asset.update(1, { move: 0, act: "windup", k: 1 });
+  assert.ok(glow.material.emissiveIntensity > idle + 2);
+});
+
+test("bossOrder gives three different bosses, fixed for a seed and varying between seeds", () => {
+  const a = bossOrder("seed-a");
+  assert.equal(a.length, 3); assert.equal(new Set(a).size, 3);
+  assert.ok(a.every((id) => BOSS_TYPES[id]));
+  assert.deepEqual(bossOrder("seed-a"), a);
+  const firsts = new Set(Array.from({ length: 40 }, (_, i) => bossOrder("s" + i)[0]));
+  assert.equal(firsts.size, 4, "any of the four can open a run");
+});
+
+test("a boss met off its home floor has that floor's health and scaled damage; on its home floor it is unchanged", () => {
+  const w = makeWorld({ withPlayer: true });
+  const home = createBoss(w, "slime-king", 0, 0), same = createBoss(w, "slime-king", 0, 0, 1), late = createBoss(w, "slime-king", 0, 0, 3), odd = createBoss(w, "slime-king", 0, 0, 9);
+  assert.deepEqual([home.maxHp, same.maxHp, late.maxHp, odd.maxHp], [300, 300, 600, 300]);
+  assert.deepEqual([home.dmgMul, late.dmgMul], [1, 1.4]);
+  const early = createBoss(w, "necromancer", 0, 0, 1);
+  assert.equal(early.maxHp, 300); assert.ok(Math.abs(early.dmgMul - 1 / 1.4) < 1e-9);
+  // the scaling reaches its telegraphs and shots
+  w.player.x = 0; w.player.z = 3;
+  const { tele } = playOut(w, late, late.def.pick(late, w, 3));
+  assert.ok([...tele].some((t) => Math.abs(t.damage - 16 * 1.4) < 1e-9), "hop damage 14 + 2 at phase 1, times 1.4");
+});
+
+test("a telegraph from an actor with no damage scaling keeps its plain damage", async () => {
+  const { tele } = await import("../../src/game/enemies.js");
+  const w = makeWorld({ withPlayer: true });
+  const t = tele({ name: "Dummy", damage: 5, tels: [] }, w, { shape: "circle", x: 0, z: 0, radius: 1 });
+  assert.equal(t.damage, 5);
+});
+
+test("actors stacked on exactly the same spot are pushed apart to both sides", async () => {
+  const { createEnemy } = await import("../../src/game/enemies.js");
+  const w = makeWorld({ withPlayer: true });
+  w.player.x = 9; w.player.z = 9;
+  const es = [0, 1, 2].map(() => { const e = createEnemy(w, "skeleton", 0, 0); e.brain = null; return e; });
+  es[2].update(w, 1 / 60);
+  es[0].x = 0; es[0].z = 0; es[1].x = 0; es[1].z = 0;
+  es[0].update(w, 1 / 60);
+  assert.ok(es.some((e) => e.x > 0) && es.some((e) => e.x < 0));
+});

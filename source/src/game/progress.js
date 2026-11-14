@@ -8,7 +8,7 @@ export const VIGOR_MAX = 2;
 export const VIGOR_COSTS = [30, 60];
 
 export const ENDINGS = [
-  { id: "spire", name: "Reached the spire's heart", how: "Beat the Necromancer" },
+  { id: "spire", name: "Reached the spire's heart", how: "Beat the third floor's boss" },
   { id: "untouched", name: "Untouched by dusk", how: "Win a run without taking a hit" },
   { id: "daily", name: "Dawn of a new day", how: "Win the daily seed run" },
 ];

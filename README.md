@@ -8,6 +8,11 @@ Browser game built with three.js r187. Fight through 3 floors of floating-island
 - Desktop: WASD to move, mouse to aim, J or left click to attack, Space or K to dodge, L to bash, Esc to pause.
 - Phone: play in landscape, with an on-screen stick and buttons.
 
+## What's in v1.6
+- A fourth boss, the Dragon Whelp: a wide fire-breath cone, fans of fireballs along red lines, and a tail sweep that hits all around when you stand close.
+- Random bosses: each run meets three of the four bosses, one per floor, in an order drawn from the run's seed. A boss met on a different floor is scaled to it (300, 450 or 600 health; damage x1, x1.2 or x1.4).
+- The "Reached the spire's heart" ending now needs a win against whichever boss guards floor 3.
+
 ## What's in v1.5.1
 - Treasure rooms: the chest no longer opens by itself. Clear the guards, then walk up to the chest to open it. Touching it early says it is sealed.
 - Rest rooms: you now heal by walking up to the campfire (35% of max health, once), not on entering the room.

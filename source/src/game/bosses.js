@@ -1,6 +1,7 @@
 // Module B: bosses. Three bosses, 3 phases (66% / 33% hp), every attack telegraphed >= 0.6 s (we use 0.8-1.0 s).
 import { yawOf, clamp } from "./world.js";
 import { checkTable, transition } from "../core/fsm.js";
+import { createRng } from "../core/rng.js";
 import {
   createActor, createEnemy, tele, killTelegraphs, shoot, aimLine, say, turn, walk, lerp, clampInside,
 } from "./enemies.js";
@@ -8,22 +9,33 @@ import {
 const TMP = { x: 0, z: 0 };
 
 export const BOSS_TYPES = {
-  "slime-king": { name: "Slime King", asset: "boss-slime-king", hp: 300, speed: 1.0, radius: 0.9, damage: 14,
+  "slime-king": { name: "Slime King", asset: "boss-slime-king", home: 1, hp: 300, speed: 1.0, radius: 0.9, damage: 14,
     tip: "The King crouches before every hop. Leave the circle, then punish him while he wobbles. At half health he splits off slimes." },
-  "stone-golem": { name: "Stone Golem", asset: "boss-golem", hp: 450, speed: 0.8, radius: 1.0, damage: 18,
+  "stone-golem": { name: "Stone Golem", asset: "boss-golem", home: 2, hp: 450, speed: 0.8, radius: 1.0, damage: 18,
     tip: "Slams land in circles; cracks run in lines with safe gaps between them. Stand in the gaps." },
-  necromancer: { name: "Necromancer", asset: "boss-necromancer", hp: 600, speed: 1.4, radius: 0.75, damage: 12,
+  necromancer: { name: "Necromancer", asset: "boss-necromancer", home: 3, hp: 600, speed: 1.4, radius: 0.75, damage: 12,
     tip: "Watch the red lines for skulls, kill summoned skeletons fast, and sidestep the cone blasts." },
+  "dragon-whelp": { name: "Dragon Whelp", asset: "boss-dragon-whelp", home: 2, hp: 450, speed: 1.3, radius: 0.9, damage: 15,
+    tip: "Its breath fills a wide cone, so get beside or behind it. Fireballs fly along the red lines. The tail sweep hits all around: back off." },
 };
 
-export function createBoss(world, bossId, x, z) {
+// Each run meets three of the bosses, one per floor, in an order drawn from the run's seed.
+export function bossOrder(seed) {
+  return createRng(`${seed}:bosses`).shuffle(Object.keys(BOSS_TYPES)).slice(0, 3);
+}
+// A boss met on another floor than the one it was tuned for ("home") is scaled to that floor.
+const FLOOR_HP = { 1: 300, 2: 450, 3: 600 }, FLOOR_DMG = { 1: 1, 2: 1.2, 3: 1.4 };
+
+export function createBoss(world, bossId, x, z, floor) {
   const B = BOSS_TYPES[bossId];
   if (!B) throw new Error(`unknown boss ${bossId}`);
+  const f = FLOOR_HP[floor] ? floor : B.home;
   const e = createActor(world, {
-    type: bossId, name: B.name, asset: B.asset, hp: B.hp, speed: B.speed, radius: B.radius, damage: B.damage,
+    type: bossId, name: B.name, asset: B.asset, hp: Math.round(B.hp * FLOOR_HP[f] / FLOOR_HP[B.home]), speed: B.speed, radius: B.radius, damage: B.damage,
     tip: B.tip, x, z, boss: true, drop: 25,
     yaw: world.player ? yawOf(world.player.x - x, world.player.z - z) : 0,
   });
+  e.dmgMul = FLOOR_DMG[f] / FLOOR_DMG[B.home]; // applied to every telegraph and shot it makes
   e.phase = 1;
   e.action = null;
   e.gap = 1.4;
@@ -275,6 +287,36 @@ function necCone() {
   };
 }
 
+// ================================================================ Dragon Whelp
+function whelpBreath(arc = 1.3) {
+  return (e, w) => {
+    const a = aimAt(e, w), wu = 0.9;
+    return seq(1.5, [
+      at(0, () => tele(e, w, { shape: "cone", x: e.x, z: e.z, angle: a, radius: 5, arc, windup: wu, damage: 16 })),
+      at(wu, () => { say(w, "slam"); if (w.shake) w.shake(0.25); if (w.fx) w.fx.burst(e.x + Math.sin(a) * 1.5, 0.8, e.z + Math.cos(a) * 1.5, 0xffb060, 20, 5); }),
+    ], (t) => { e.pitch = t < wu ? -0.25 * (t / wu) : 0.25 * (1 - clamp((t - wu) / 0.5, 0, 1)); });
+  };
+}
+function whelpFireballs(n) {
+  return (e, w) => {
+    const a = aimAt(e, w), wu = 0.8, angles = [];
+    for (let i = 0; i < n; i++) angles.push(a + (i - (n - 1) / 2) * 0.45);
+    return seq(1.4, [
+      at(0, () => { for (const o of angles) aimLine(e, w, o, wu, 10, 0.34); }),
+      at(wu, () => { say(w, "windup"); for (const o of angles) shoot(e, w, o, { speed: 6.2, damage: 11, kind: "fireball", range: 12, radius: 0.26, y: 0.9 }); }),
+    ], (t) => { e.sy = t < wu ? 1 + 0.1 * (t / wu) : 1; });
+  };
+}
+function whelpSweep() {
+  return (e, w) => {
+    const wu = 0.8, yaw0 = e.yaw;
+    return seq(1.3, [
+      at(0, () => tele(e, w, { shape: "circle", x: e.x, z: e.z, radius: 2.5, windup: wu, damage: 14 })),
+      at(wu, () => { say(w, "slam"); if (w.shake) w.shake(0.2); }),
+    ], (t) => { e.yaw = yaw0 + (t < wu ? -0.6 * (t / wu) : -0.6 + Math.PI * 2 * clamp((t - wu) / 0.35, 0, 1)); }); // coils, then spins once
+  };
+}
+
 function liveSkeletons(w) {
   let n = 0;
   for (const o of w.enemies) if (!o.dead && o.type === "skeleton") n++;
@@ -312,6 +354,16 @@ const BRAINS = {
       return weighted(w, [
         [() => chain(golemSlam(1.6, 0.9), golemSlam(1.6, 0.8)), 3], [() => chain(golemStar()), 3], [() => chain(golemFan()), 2],
       ])();
+    },
+  },
+  "dragon-whelp": {
+    gap: [1.0, 0.8, 0.6],
+    move(e, w, dt, d, ux, uz) { keep(e, w, dt, d, ux, uz, 2.2, 4.2); e.y = 0.15 + 0.1 * Math.sin(w.time * 2.4); },
+    pick(e, w, d) {
+      if (d < 2.4) return chain(whelpSweep());
+      if (e.phase === 1) return weighted(w, [[() => chain(whelpBreath()), 3], [() => chain(whelpFireballs(3)), 2]])();
+      if (e.phase === 2) return weighted(w, [[() => chain(whelpBreath(1.6)), 3], [() => chain(whelpFireballs(5)), 3]])();
+      return weighted(w, [[() => chain(whelpBreath(1.6), whelpFireballs(3)), 3], [() => chain(whelpFireballs(5), whelpFireballs(3)), 2], [() => chain(whelpSweep(), whelpBreath()), 2]])();
     },
   },
   necromancer: {
